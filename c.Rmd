@@ -6,7 +6,7 @@ output: pdf_document
 ---
 
 ```{r Setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)   
+knitr::opts_chunk$set(echo = TRUE)  
 ```
 
 ```{r Daten importieren}
@@ -16,6 +16,7 @@ df_survey = read.csv('Survey.csv')
 
 ```{r Daten verstehen}
   
+
 ```
 
 
