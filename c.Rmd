@@ -15,7 +15,7 @@ df_survey = read.csv('Survey.csv')
 ```
 
 ```{r Daten verstehen}
-
+  
 ```
 
 
