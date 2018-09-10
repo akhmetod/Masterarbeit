@@ -2,42 +2,52 @@
 title: "Code zur Masterarbeit"
 author: "Xuan Son Le (4669361)"
 date: "8/13/2018"
-output: pdf_document
+output: 
+    pdf_document:
+        keep_tex: true
 ---
 
 ```{r Setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)  
 library(dplyr)
 library(ggplot2)
+library(xtable)
+options(xtable.floating = FALSE)
+options(xtable.timestamp = "")
+library(Hmisc)
 ```
 
 ```{r Daten importieren}
 dfCensus <- read.csv('c.csv')[,-1]
 dfSurvey <- read.csv('s.csv')[,-1]
 
+# Nur gemeinsame erklärende Variablen behalten
 dfCensus <- dfCensus[,colnames(dfCensus) %in% colnames(dfSurvey)]
 
 dfSurvey <- data.frame("cuadrantes" = dfSurvey[,"cuadrantes"],
                        dfSurvey[,colnames(dfSurvey) %in% colnames(dfCensus)])
 
-
+describe(dfSurvey)
+str(dfSurvey)
 ```
 
 ```{r Datenverständnis, warning = FALSE}
-# Anteil Missing Values
+# Anteil an fehlenden Werten
+missingSurvey <- data.frame("Variable" = colnames(dfSurvey), "MissingSurvey" = t(data.frame(lapply(dfSurvey, function(x) round(100*sum(is.na(x))/length(x),1)))), row.names = NULL)
 
-missingSurvey <- data.frame("Variable" = colnames(dfSurvey), "PercentageMissingSurv" = t(data.frame(lapply(dfSurvey, function(x) round(100*sum(is.na(x))/length(x),1)))), row.names = NULL)
+missingCensus <- data.frame("Variable" = colnames(dfCensus), "MissingCensus" = t(data.frame(lapply(dfCensus, function(x) round(100*sum(is.na(x))/length(x),1)))), row.names = NULL)
 
-missingCensus <- data.frame("Variable" = colnames(dfCensus), "PercentageMissingCens" = t(data.frame(lapply(dfCensus, function(x) round(100*sum(is.na(x))/length(x),1)))), row.names = NULL)
-
+missingDF <- left_join(missingSurvey, missingCensus, by = 'Variable')
 missingAll <- left_join(missingSurvey, missingCensus, by = 'Variable')
 
-missingDF <- missingAll[which(missingAll[,2] > 10 | missingAll[,3] > 10),]
+missingDF <- missingDF[which(missingDF[,2] > 10 | missingDF[,3] > 10),]
 row.names(missingDF) <- c(1:nrow(missingDF))
 
+#xtable(missingDF) #Latex-Formatierung
 
-
-
+# Variablen mit zu vielen fehlenden Werten werden entfernt
+dfCensus <- dfCensus[, !(colnames(dfCensus) %in% missingDF[1:5,1])]
+dfSurvey <- dfSurvey[, !(colnames(dfSurvey) %in% missingDF[1:5,1])]
 ```
 
 
@@ -45,7 +55,7 @@ row.names(missingDF) <- c(1:nrow(missingDF))
 
 
 
-```{r}
+```{r eval=FALSE, include=FALSE}
 # Encoding the target feature as factor
 dataset$Purchased = factor(dataset$Purchased, levels = c(0, 1))
 
