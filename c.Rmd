@@ -7,15 +7,36 @@ output: pdf_document
 
 ```{r Setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)  
+library(dplyr)
+library(ggplot2)
 ```
 
 ```{r Daten importieren}
-df_cens = read.csv('Cens.csv')
-df_survey = read.csv('Survey.csv')
+dfCensus <- read.csv('c.csv')[,-1]
+dfSurvey <- read.csv('s.csv')[,-1]
+
+dfCensus <- dfCensus[,colnames(dfCensus) %in% colnames(dfSurvey)]
+
+dfSurvey <- data.frame("cuadrantes" = dfSurvey[,"cuadrantes"],
+                       dfSurvey[,colnames(dfSurvey) %in% colnames(dfCensus)])
+
+
 ```
 
-```{r Daten verstehen}
-  
+```{r Datenverständnis, warning = FALSE}
+# Anteil Missing Values
+
+missingSurvey <- data.frame("Variable" = colnames(dfSurvey), "PercentageMissingSurv" = t(data.frame(lapply(dfSurvey, function(x) round(100*sum(is.na(x))/length(x),1)))), row.names = NULL)
+
+missingCensus <- data.frame("Variable" = colnames(dfCensus), "PercentageMissingCens" = t(data.frame(lapply(dfCensus, function(x) round(100*sum(is.na(x))/length(x),1)))), row.names = NULL)
+
+missingAll <- left_join(missingSurvey, missingCensus, by = 'Variable')
+
+missingDF <- missingAll[which(missingAll[,2] > 10 | missingAll[,3] > 10),]
+row.names(missingDF) <- c(1:nrow(missingDF))
+
+
+
 
 ```
 
