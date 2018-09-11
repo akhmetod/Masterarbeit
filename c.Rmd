@@ -15,6 +15,7 @@ library(xtable)
 options(xtable.floating = FALSE)
 options(xtable.timestamp = "")
 library(Hmisc)
+library(params)
 ```
 
 ```{r Daten importieren, warning=FALSE}
@@ -27,8 +28,9 @@ dfCensus <- dfCensus[,colnames(dfCensus) %in% colnames(dfSurvey)]
 dfSurvey <- data.frame("cuadrantes" = dfSurvey[,"cuadrantes"],
                        dfSurvey[,colnames(dfSurvey) %in% colnames(dfCensus)])
 
-describe(dfSurvey)
-str(dfSurvey)
+# Deskriptive Statistik
+#describe(dfSurvey)
+#str(dfSurvey)
 ```
 
 ```{r Datenverständnis, warning = FALSE}
@@ -55,48 +57,83 @@ dfCensus <- dfCensus[, -which(colnames(dfCensus) %in% c('ent'))]
 dfSurvey <- dfSurvey[, -which(colnames(dfSurvey) %in% c('ent'))]
 
 # Transformation numerischer in nomialer Variablen
-dfSurveyNew <- data.frame(lapply(dfSurvey[, -which(colnames(dfCensus) %in% c('edad','años_escolaridad'))], function(x) factor(x)), 'edad' = dfSurvey[,'edad'], 'años_escolaridad' = dfSurvey[,'años_escolaridad'])
-str(dfSurveyNew)
+dfSurveyNew <- data.frame(lapply(dfSurvey[, -c(3,7)], function(x) factor(x)), 'edad' = dfSurvey[,3], 'anos_escolaridad' = dfSurvey[,7])
+dfCensusNew <- data.frame(lapply(dfCensus[, -c(3,7)], function(x) factor(x)), 'edad' = dfCensus[,3], 'anos_escolaridad' = dfCensus[,7])
+
+# Hilfsvariablen entfernen
+hilfsvariablen <- c('est_dis', 'factor', 'idD', 'mun', 'upm')
+dfSurveyNew <- dfSurveyNew[ , !(names(dfSurveyNew)  %in% hilfsvariablen)]
+dfCensusNew <- dfCensusNew[ , !(names(dfCensusNew)  %in% hilfsvariablen)]
+
+# Ausreißerbehandlung
+
+dfSurveyNew <- na.omit(dfSurveyNew)
+
+# xtable(
+#     aggregate(dfSurveyNew[,(names(dfSurveyNew) %in% c('edad', 'anos_escolaridad'))],
+#               by = list(dfSurveyNew$cuadrantes),
+#               FUN = median,
+#               na.rm = TRUE,
+#               na.action = na.pass)
+# )
+    
+```
+
+```{r Multimomiale logistische Regression}
+# Datensatz in Trainings- und Testdatendatz splitten
+require(caTools)
+set.seed(123)
+split = sample.split(dfSurveyNew$cuadrantes, SplitRatio = 0.80)
+trainingSurvey = subset(dfSurveyNew, split == TRUE)
+testSurvey = subset(dfSurveyNew, split == FALSE)
+
+# Fitting multlogReg to the Training set
+library(nnet)
+fullMLR <- multinom(cuadrantes ~ ., data = trainingSurvey)
+fullMLR <- step(fullMLR, direction = 'backward')
+
+#y_hat <- ifelse(y_prob < 0.5, 0 , 1 )
+
+# Predicting the Test set results
+y_pred_MLR <- predict(fullMLR, newdata = testSurvey[-1])
+#y_pred <- ifelse(y_pred < 0.5, 0 , 1 )
+
+# Making the Confusion Matrix
+confMat_MLR = table(testSurvey[,1], y_pred_MLR)
+
+# Genauigkeit
+accuracy_MLR <- sum(diag(confMat_MLR))/sum(confMat_MLR)
+```
+
+
+```{r SVM}
+# Fitting SVM to the Training set
+#install.packages("e1071")
+library(e1071)
+classifierSVM <- svm(formula = cuadrantes ~ .,
+                  data = trainingSurvey,
+                  type = "C-classification",
+                  kernel = "radial")
+
+# Predicting the Test set results
+y_pred_SVM = predict(classifierSVM, newdata = testSurvey[-1])
+
+# Making the Confusion Matrix
+confMat_SVM = table(testSurvey[,1], y_pred_SVM)
+
+# Genauigkeit
+accuracy_SVM <- sum(diag(confMat_SVM))/sum(confMat_SVM)
 ```
 
 
 
 
 ```{r eval=FALSE, include=FALSE}
-# Encoding the target feature as factor
-dataset$Purchased = factor(dataset$Purchased, levels = c(0, 1))
-
-# Splitting the dataset into the Training set and Test set
-# install.packages('caTools')
-library(caTools)
-set.seed(123)
-split = sample.split(dataset$Purchased, SplitRatio = 0.75)
-training_set = subset(dataset, split == TRUE)
-test_set = subset(dataset, split == FALSE)
-
-# Feature Scaling
-training_set[-3] = scale(training_set[-3])
-test_set[-3] = scale(test_set[-3])
-
-# Fitting classifier to the Training set
-# Create your classifier here
-#install.packages("e1071")
-library(e1071)
-classifier <- svm(formula = Purchased ~ .,
-                  data = training_set,
-                  type = "C-classification",
-                  kernel = "radial")
-
-# Predicting the Test set results
-y_pred = predict(classifier, newdata = test_set[-3])
-
-# Making the Confusion Matrix
-cm = table(test_set[, 3], y_pred)
 
 # Visualising the Training set results
 #install.packages("ElemStatLearn")
 library(ElemStatLearn)
-set = training_set
+set = trainingSurvey
 X1 = seq(min(set[, 1]) - 1, max(set[, 1]) + 1, by = 0.01)
 X2 = seq(min(set[, 2]) - 1, max(set[, 2]) + 1, by = 0.01)
 grid_set = expand.grid(X1, X2)
@@ -124,3 +161,4 @@ contour(X1, X2, matrix(as.numeric(y_grid), length(X1), length(X2)), add = TRUE)
 points(grid_set, pch = '.', col = ifelse(y_grid == 1, 'springgreen3', 'tomato'))
 points(set, pch = 21, bg = ifelse(set[, 3] == 1, 'green4', 'red3'))
 ```
+
