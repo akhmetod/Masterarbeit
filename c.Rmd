@@ -17,7 +17,7 @@ options(xtable.timestamp = "")
 library(Hmisc)
 ```
 
-```{r Daten importieren}
+```{r Daten importieren, warning=FALSE}
 dfCensus <- read.csv('c.csv')[,-1]
 dfSurvey <- read.csv('s.csv')[,-1]
 
@@ -32,7 +32,7 @@ str(dfSurvey)
 ```
 
 ```{r Datenverständnis, warning = FALSE}
-# Anteil an fehlenden Werten
+# Anteil an fehlenden Werten bestimmen
 missingSurvey <- data.frame("Variable" = colnames(dfSurvey), "MissingSurvey" = t(data.frame(lapply(dfSurvey, function(x) round(100*sum(is.na(x))/length(x),1)))), row.names = NULL)
 
 missingCensus <- data.frame("Variable" = colnames(dfCensus), "MissingCensus" = t(data.frame(lapply(dfCensus, function(x) round(100*sum(is.na(x))/length(x),1)))), row.names = NULL)
@@ -43,14 +43,21 @@ missingAll <- left_join(missingSurvey, missingCensus, by = 'Variable')
 missingDF <- missingDF[which(missingDF[,2] > 10 | missingDF[,3] > 10),]
 row.names(missingDF) <- c(1:nrow(missingDF))
 
-#xtable(missingDF) #Latex-Formatierung
+# Latex-Formatierung
+#xtable(missingDF) 
 
 # Variablen mit zu vielen fehlenden Werten werden entfernt
 dfCensus <- dfCensus[, !(colnames(dfCensus) %in% missingDF[1:5,1])]
 dfSurvey <- dfSurvey[, !(colnames(dfSurvey) %in% missingDF[1:5,1])]
+
+# Variable ent wird entfernt
+dfCensus <- dfCensus[, -which(colnames(dfCensus) %in% c('ent'))]
+dfSurvey <- dfSurvey[, -which(colnames(dfSurvey) %in% c('ent'))]
+
+# Transformation numerischer in nomialer Variablen
+dfSurveyNew <- data.frame(lapply(dfSurvey[, -which(colnames(dfCensus) %in% c('edad','años_escolaridad'))], function(x) factor(x)), 'edad' = dfSurvey[,'edad'], 'años_escolaridad' = dfSurvey[,'años_escolaridad'])
+str(dfSurveyNew)
 ```
-
-
 
 
 
