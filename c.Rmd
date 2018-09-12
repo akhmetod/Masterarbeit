@@ -3,6 +3,8 @@ title: "Code zur Masterarbeit"
 author: "Xuan Son Le (4669361)"
 date: "10/10/2018"
 output: pdf_document: keep_tex: true
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r Setup, include=FALSE}
@@ -18,8 +20,8 @@ library(params)
 
 ```{r Daten importieren, warning=FALSE}
 # CSV-Datei einlesen
-dfCensus <- read.csv('c.csv')[,-1] #Spalte 1 enthält nur Zeilennummer
-dfSurvey <- read.csv('s.csv')[,-1] #Spalte 1 enthält nur Zeilennummer
+dfCensus <- read.csv('c.csv')[,-1] #Spalte 1 enthält nur Zeilennummer und wird entfernt
+dfSurvey <- read.csv('s.csv')[,-1] #Spalte 1 enthält nur Zeilennummer und wird entfernt
 
 # Nur gemeinsame erklärende Variablen werden behalten
 dfCensus <- dfCensus[,colnames(dfCensus) %in% colnames(dfSurvey)]
@@ -61,17 +63,9 @@ hilfsvariablen <- c('est_dis', 'factor', 'idD', 'mun', 'upm')
 dfSurveyNew <- dfSurveyNew[ , !(names(dfSurveyNew)  %in% hilfsvariablen)]
 dfCensusNew <- dfCensusNew[ , !(names(dfCensusNew)  %in% hilfsvariablen)]
 
-# Behandlung fehlender Werte
-dfSurveyNew <- na.omit(dfSurveyNew)
-
-# Multikorrelation überprüfen
-library(caret)
-correlationMatrix <- data.frame(cor(dfSurveyNew[,-1]))
-colToRemove <- findCorrelation(cor(dfSurveyNew[,-1]), cutoff = 0.75)
-dfSurveyNew <- dfSurveyNew[ , -(colToRemove + 1)]
-
 # Transformation numerischer in nomialer Variablen. Ausgenommen sind edad und anos_escolaridad.
 dfSurveyNew <- data.frame(lapply(dfSurveyNew[, -c(3,7)], function(x) factor(x)), 'edad' = dfSurveyNew[,3], 'anos_escolaridad' = dfSurveyNew[,7])
+dfSurveyNew$sexo <- factor(dfSurveyNew$sexo, levels = c(0,1), labels = c('Weiblich','Männlich'))
 # dfCensusNew <- data.frame(lapply(dfCensus[, -c(3,7)], function(x) factor(x)), 'edad' = dfCensus[,3], 'anos_escolaridad' = dfCensus[,7])
 
 # xtable(
@@ -82,11 +76,125 @@ dfSurveyNew <- data.frame(lapply(dfSurveyNew[, -c(3,7)], function(x) factor(x)),
 #               na.action = na.pass)
 # )
 
+c1 <- ggplot(data = dfSurveyNew, aes(x = cuadrantes, fill = cuadrantes)) +
+            geom_bar() +
+            theme_light() +
+            labs(title = "Verteilung der Armutskategorien",
+                 y = "Anzahl der Beobachtung",
+                 x = "Armutskategorie") +
+            scale_fill_discrete("Armutskategorie",
+                                breaks = c("1", "2", "3", "4", "5"), 
+                                labels = c("extreme Armut", "gemilderte Armut", 
+                                           "anfällige Armut wegen Einkommen", "anfällige Armut wegen Sozialmängeln", "keine Armut")) +
+            theme(plot.title = element_text(size = 14, face = "bold"),
+                  axis.line.x = element_line(color = "black", size = 0.5),
+                  axis.line.y = element_line(color = "black", size = 0.5),
+                  axis.text.x = element_blank(),
+                  axis.text.y = element_text(size = 10))
+
+c2 <- ggplot(data = dfSurveyNew, aes(x = cuadrantes, fill = sexo)) +
+            geom_bar(position = 'dodge', width = 0.75) +
+            theme_light() +
+            labs(title = "Armutskategorie nach Geschlecht",
+                 y = "Anzahl der Beobachtung",
+                 x = " ",
+                 fill = "Geschlecht") +
+            scale_x_discrete(labels = c("extreme\nArmut", "gemilderte\nArmut", 
+                                        "anfällige\nArmut\nwegen\nEinkommen", "anfällige\nArmut\nwegen\nSozialmängeln", "keine\nArmut"),
+                             expand = c(0,0))
+            theme(plot.title = element_text(size = 14, face = "bold"),
+                  axis.title.y = element_text(size = 10),
+                  axis.line.x = element_line(color = "black", size = 0.5),
+                  axis.line.y = element_line(color = "black", size = 0.5),
+                  axis.text.x = element_text(size = 10),
+                  axis.text.y = element_text(size = 10))
+
+dfSurveyNew <- dfSurveyNew %>% mutate(ageGroup = case_when(
+        edad < 6 ~ "< 6",
+        edad < 18 ~ "10-18",
+        edad < 65 ~ "18-65",
+        TRUE ~ "> 65"
+    )
+)
+
+dfSurveyNew <- dfSurveyNew %>% mutate(schoolYears = case_when(
+        anos_escolaridad == 0 ~ "Kein Schulbesuch",
+        anos_escolaridad < 6 ~ "Grundschule",
+        anos_escolaridad < 9 ~ "Mittelschule",
+        anos_escolaridad < 12 ~ "Oberschule", 
+        TRUE ~ "Studium"
+    )
+)
+
+c3 <- ggplot(data = dfSurveyNew, aes(x = edad, fill = cuadrantes)) +
+            geom_histogram(position = "fill", bins = 30) +
+            geom_vline(xintercept = mean(dfSurveyNew$edad), linetype = "dashed") +
+            theme_light() +
+            labs(title = "Armutskategorie nach Alter",
+                 y = "Anteil der Beobachtungen",
+                 x = " ",
+                 fill = "Armutskategorie") +
+            scale_x_continuous(breaks = seq(0, 100, by = 10), expand = c(0,0)) +
+            scale_y_continuous(expand = c(0,0)) +
+            theme(plot.title = element_text(size = 14, face = "bold"),
+                  axis.title.y = element_text(size = 10),
+                  axis.line.x = element_line(color = "black", size = 0.5),
+                  axis.line.y = element_line(color = "black", size = 0.5),
+                  axis.text.x = element_text(size = 10),
+                  axis.text.y = element_text(size = 10))
+
+ggplot(data = dfSurveyNew, aes(x = ageGroup, fill = cuadrantes)) +
+            geom_bar(position = 'dodge') +
+            theme_light() +
+            labs(title = "Armutskategorie nach Altersgruppe",
+                 y = "Anzahl der Beobachtung",
+                 x = " ",
+                 fill = "Armutskategorie") +
+            theme(plot.title = element_text(size = 14, face = "bold"),
+                  axis.title.y = element_text(size = 10),
+                  axis.line.x = element_line(color = "black", size = 0.5),
+                  axis.line.y = element_line(color = "black", size = 0.5),
+                  axis.text.x = element_text(size = 10),
+                  axis.text.y = element_text(size = 10))
+
+c4 <- ggplot(data = dfSurveyNew, aes(x = schoolYears, fill = cuadrantes)) +
+            geom_bar(position = 'dodge') +
+            theme_light() +
+            labs(title = "Armutskategorie nach Schulbesuch",
+                 y = "Anzahl der Beobachtung",
+                 x = " ",
+                 fill = "Armutskategorie") +
+            scale_x_discrete(limits=c('Kein Schulbesuch','Grundschule', 'Mittelschule', 'Oberschule', 'Studium')) +
+            theme(plot.title = element_text(size = 14, face = "bold"),
+                  axis.title.y = element_text(size = 10),
+                  axis.line.x = element_line(color = "black", size = 0.5),
+                  axis.line.y = element_line(color = "black", size = 0.5),
+                  axis.text.x = element_text(size = 10),
+                  axis.text.y = element_text(size = 10)) + facet_grid(ic_rezedu ~ ., labeller = as_labeller(c('0' = 'Keine Verzögerung',
+                                                                                                              '1' = 'Mit Verzögerung')))
+
+ggplot(data = dfSurveyNew, aes(x = ic_rezedu, fill = cuadrantes)) +
+            geom_bar(position = 'dodge') +
+            theme_light() +
+            labs(title = "Armutskategorie nach Schulbesuch",
+                 y = "Anzahl der Beobachtung",
+                 x = " ",
+                 fill = "Armutskategorie") +
+            theme(plot.title = element_text(size = 14, face = "bold"),
+                  axis.title.y = element_text(size = 10),
+                  axis.line.x = element_line(color = "black", size = 0.5),
+                  axis.line.y = element_line(color = "black", size = 0.5),
+                  axis.text.x = element_text(size = 10),
+                  axis.text.y = element_text(size = 10))
+
+# Behandlung fehlender Werte
+dfSurveyNew <- na.omit(dfSurveyNew)
+#str(dfSurveyNew)
 ```
 
 ```{r Multimomiale logistische Regression}
 # Datensatz in Trainings- und Testdatendatz splitten
-require(caTools)
+library(caTools)
 set.seed(123)
 split = sample.split(dfSurveyNew$cuadrantes, SplitRatio = 0.75)
 trainingSurvey = subset(dfSurveyNew, split == TRUE)
@@ -95,7 +203,7 @@ testSurvey = subset(dfSurveyNew, split == FALSE)
 # multlogReg modellieren (anhand Trainingsdatensatz)
 library(nnet)
 fullMLR <- multinom(cuadrantes ~ ., data = trainingSurvey)
-AICMLR <- step(fullMLR, direction = 'both')
+AICMLR <- step(fullMLR, direction = 'backward')
 
 #y_hat <- ifelse(y_prob < 0.5, 0 , 1 )
 
