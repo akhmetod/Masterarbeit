@@ -1,10 +1,8 @@
 ---
 title: "Code zur Masterarbeit"
 author: "Xuan Son Le (4669361)"
-date: "8/13/2018"
-output: 
-    pdf_document:
-        keep_tex: true
+date: "10/10/2018"
+output: pdf_document: keep_tex: true
 ---
 
 ```{r Setup, include=FALSE}
@@ -19,12 +17,12 @@ library(params)
 ```
 
 ```{r Daten importieren, warning=FALSE}
-dfCensus <- read.csv('c.csv')[,-1]
-dfSurvey <- read.csv('s.csv')[,-1]
+# CSV-Datei einlesen
+dfCensus <- read.csv('c.csv')[,-1] #Spalte 1 enthält nur Zeilennummer
+dfSurvey <- read.csv('s.csv')[,-1] #Spalte 1 enthält nur Zeilennummer
 
-# Nur gemeinsame erklärende Variablen behalten
+# Nur gemeinsame erklärende Variablen werden behalten
 dfCensus <- dfCensus[,colnames(dfCensus) %in% colnames(dfSurvey)]
-
 dfSurvey <- data.frame("cuadrantes" = dfSurvey[,"cuadrantes"],
                        dfSurvey[,colnames(dfSurvey) %in% colnames(dfCensus)])
 
@@ -34,7 +32,7 @@ dfSurvey <- data.frame("cuadrantes" = dfSurvey[,"cuadrantes"],
 ```
 
 ```{r Datenverständnis, warning = FALSE}
-# Anteil an fehlenden Werten bestimmen
+# Anteil an fehlenden Werten bestimmen und in einer Tabelle zusammenfassen
 missingSurvey <- data.frame("Variable" = colnames(dfSurvey), "MissingSurvey" = t(data.frame(lapply(dfSurvey, function(x) round(100*sum(is.na(x))/length(x),1)))), row.names = NULL)
 
 missingCensus <- data.frame("Variable" = colnames(dfCensus), "MissingCensus" = t(data.frame(lapply(dfCensus, function(x) round(100*sum(is.na(x))/length(x),1)))), row.names = NULL)
@@ -45,29 +43,36 @@ missingAll <- left_join(missingSurvey, missingCensus, by = 'Variable')
 missingDF <- missingDF[which(missingDF[,2] > 10 | missingDF[,3] > 10),]
 row.names(missingDF) <- c(1:nrow(missingDF))
 
-# Latex-Formatierung
-#xtable(missingDF) 
+# Latex-Formatierung #xtable(missingDF) 
 
 # Variablen mit zu vielen fehlenden Werten werden entfernt
 dfCensus <- dfCensus[, !(colnames(dfCensus) %in% missingDF[1:5,1])]
 dfSurvey <- dfSurvey[, !(colnames(dfSurvey) %in% missingDF[1:5,1])]
 
-# Variable ent wird entfernt
+# Variable ent wird entfernt, da nur ein Wert für alle Beobachtungen
 dfCensus <- dfCensus[, -which(colnames(dfCensus) %in% c('ent'))]
 dfSurvey <- dfSurvey[, -which(colnames(dfSurvey) %in% c('ent'))]
 
-# Transformation numerischer in nomialer Variablen
-dfSurveyNew <- data.frame(lapply(dfSurvey[, -c(3,7)], function(x) factor(x)), 'edad' = dfSurvey[,3], 'anos_escolaridad' = dfSurvey[,7])
-dfCensusNew <- data.frame(lapply(dfCensus[, -c(3,7)], function(x) factor(x)), 'edad' = dfCensus[,3], 'anos_escolaridad' = dfCensus[,7])
+dfSurveyNew <- dfSurvey
+dfCensusNew <- dfCensus
 
-# Hilfsvariablen entfernen
+# Hilfsvariablen werden entfernt
 hilfsvariablen <- c('est_dis', 'factor', 'idD', 'mun', 'upm')
 dfSurveyNew <- dfSurveyNew[ , !(names(dfSurveyNew)  %in% hilfsvariablen)]
 dfCensusNew <- dfCensusNew[ , !(names(dfCensusNew)  %in% hilfsvariablen)]
 
-# Ausreißerbehandlung
-
+# Behandlung fehlender Werte
 dfSurveyNew <- na.omit(dfSurveyNew)
+
+# Multikorrelation überprüfen
+library(caret)
+correlationMatrix <- data.frame(cor(dfSurveyNew[,-1]))
+colToRemove <- findCorrelation(cor(dfSurveyNew[,-1]), cutoff = 0.75)
+dfSurveyNew <- dfSurveyNew[ , -(colToRemove + 1)]
+
+# Transformation numerischer in nomialer Variablen. Ausgenommen sind edad und anos_escolaridad.
+dfSurveyNew <- data.frame(lapply(dfSurveyNew[, -c(3,7)], function(x) factor(x)), 'edad' = dfSurveyNew[,3], 'anos_escolaridad' = dfSurveyNew[,7])
+# dfCensusNew <- data.frame(lapply(dfCensus[, -c(3,7)], function(x) factor(x)), 'edad' = dfCensus[,3], 'anos_escolaridad' = dfCensus[,7])
 
 # xtable(
 #     aggregate(dfSurveyNew[,(names(dfSurveyNew) %in% c('edad', 'anos_escolaridad'))],
@@ -76,26 +81,26 @@ dfSurveyNew <- na.omit(dfSurveyNew)
 #               na.rm = TRUE,
 #               na.action = na.pass)
 # )
-    
+
 ```
 
 ```{r Multimomiale logistische Regression}
 # Datensatz in Trainings- und Testdatendatz splitten
 require(caTools)
 set.seed(123)
-split = sample.split(dfSurveyNew$cuadrantes, SplitRatio = 0.80)
+split = sample.split(dfSurveyNew$cuadrantes, SplitRatio = 0.75)
 trainingSurvey = subset(dfSurveyNew, split == TRUE)
 testSurvey = subset(dfSurveyNew, split == FALSE)
 
-# Fitting multlogReg to the Training set
+# multlogReg modellieren (anhand Trainingsdatensatz)
 library(nnet)
 fullMLR <- multinom(cuadrantes ~ ., data = trainingSurvey)
-fullMLR <- step(fullMLR, direction = 'backward')
+AICMLR <- step(fullMLR, direction = 'both')
 
 #y_hat <- ifelse(y_prob < 0.5, 0 , 1 )
 
-# Predicting the Test set results
-y_pred_MLR <- predict(fullMLR, newdata = testSurvey[-1])
+# Vorhersage (anhand Testdatensatz)
+y_pred_MLR <- predict(AICMLR, newdata = testSurvey[-1])
 #y_pred <- ifelse(y_pred < 0.5, 0 , 1 )
 
 # Making the Confusion Matrix
@@ -113,7 +118,7 @@ library(e1071)
 classifierSVM <- svm(formula = cuadrantes ~ .,
                   data = trainingSurvey,
                   type = "C-classification",
-                  kernel = "radial")
+                  kernel = "sigmoid")
 
 # Predicting the Test set results
 y_pred_SVM = predict(classifierSVM, newdata = testSurvey[-1])
