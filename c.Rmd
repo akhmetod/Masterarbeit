@@ -76,21 +76,25 @@ dfSurveyNew$sexo <- factor(dfSurveyNew$sexo, levels = c(0,1), labels = c('Weibli
 #               na.action = na.pass)
 # )
 
+# Grafiken
 c1 <- ggplot(data = dfSurveyNew, aes(x = cuadrantes, fill = cuadrantes)) +
-            geom_bar() +
+            geom_bar(width = 0.75) +
             theme_light() +
             labs(title = "Verteilung der Armutskategorien",
                  y = "Anzahl der Beobachtung",
                  x = "Armutskategorie") +
-            scale_fill_discrete("Armutskategorie",
-                                breaks = c("1", "2", "3", "4", "5"), 
-                                labels = c("extreme Armut", "gemilderte Armut", 
-                                           "anfällige Armut wegen Einkommen", "anfällige Armut wegen Sozialmängeln", "keine Armut")) +
+            scale_fill_discrete(guide = FALSE) +
+            scale_x_discrete(labels = c("extreme\nArmut", "gemilderte\nArmut", 
+                                        "anfällige\nArmut\nwegen\nEinkommen",
+                                        "anfällige\nArmut\nwegen\nSozialmängeln", 
+                                        "keine\nArmut")) +
             theme(plot.title = element_text(size = 14, face = "bold"),
                   axis.line.x = element_line(color = "black", size = 0.5),
                   axis.line.y = element_line(color = "black", size = 0.5),
-                  axis.text.x = element_blank(),
-                  axis.text.y = element_text(size = 10))
+                  axis.text.y = element_text(size = 10),
+                  axis.text.x = element_text(size = 10),
+                  axis.title.x = element_text(face = "bold"),
+                  axis.title.y = element_text(face = "bold"))
 
 c2 <- ggplot(data = dfSurveyNew, aes(x = cuadrantes, fill = sexo)) +
             geom_bar(position = 'dodge', width = 0.75) +
@@ -99,15 +103,18 @@ c2 <- ggplot(data = dfSurveyNew, aes(x = cuadrantes, fill = sexo)) +
                  y = "Anzahl der Beobachtung",
                  x = " ",
                  fill = "Geschlecht") +
-            scale_x_discrete(labels = c("extreme\nArmut", "gemilderte\nArmut", 
-                                        "anfällige\nArmut\nwegen\nEinkommen", "anfällige\nArmut\nwegen\nSozialmängeln", "keine\nArmut"),
-                             expand = c(0,0))
+            scale_x_discrete("Armutskategorie",
+                             labels = c("extreme\nArmut", "gemilderte\nArmut", 
+                                        "anfällige\nArmut\nwegen\nEinkommen",
+                                        "anfällige\nArmut\nwegen\nSozialmängeln",
+                                        "keine\nArmut")) +
             theme(plot.title = element_text(size = 14, face = "bold"),
-                  axis.title.y = element_text(size = 10),
                   axis.line.x = element_line(color = "black", size = 0.5),
                   axis.line.y = element_line(color = "black", size = 0.5),
+                  axis.text.y = element_text(size = 10),
                   axis.text.x = element_text(size = 10),
-                  axis.text.y = element_text(size = 10))
+                  axis.title.x = element_text(face = "bold"),
+                  axis.title.y = element_text(face = "bold"))
 
 dfSurveyNew <- dfSurveyNew %>% mutate(ageGroup = case_when(
         edad < 6 ~ "< 6",
@@ -136,12 +143,19 @@ c3 <- ggplot(data = dfSurveyNew, aes(x = edad, fill = cuadrantes)) +
                  fill = "Armutskategorie") +
             scale_x_continuous(breaks = seq(0, 100, by = 10), expand = c(0,0)) +
             scale_y_continuous(expand = c(0,0)) +
+            scale_fill_discrete("Armutskategorie",
+                                breaks = c("1", "2", "3", "4", "5"), 
+                                labels = c("extreme Armut", "gemilderte Armut", 
+                                           "anfällige Armut wegen Einkommen", 
+                                           "anfällige Armut wegen Sozialmängeln", 
+                                           "keine Armut")) +
             theme(plot.title = element_text(size = 14, face = "bold"),
-                  axis.title.y = element_text(size = 10),
                   axis.line.x = element_line(color = "black", size = 0.5),
                   axis.line.y = element_line(color = "black", size = 0.5),
+                  axis.text.y = element_text(size = 10),
                   axis.text.x = element_text(size = 10),
-                  axis.text.y = element_text(size = 10))
+                  axis.title.x = element_text(face = "bold"),
+                  axis.title.y = element_text(face = "bold"))
 
 ggplot(data = dfSurveyNew, aes(x = ageGroup, fill = cuadrantes)) +
             geom_bar(position = 'dodge') +
@@ -151,11 +165,12 @@ ggplot(data = dfSurveyNew, aes(x = ageGroup, fill = cuadrantes)) +
                  x = " ",
                  fill = "Armutskategorie") +
             theme(plot.title = element_text(size = 14, face = "bold"),
-                  axis.title.y = element_text(size = 10),
                   axis.line.x = element_line(color = "black", size = 0.5),
                   axis.line.y = element_line(color = "black", size = 0.5),
+                  axis.text.y = element_text(size = 10),
                   axis.text.x = element_text(size = 10),
-                  axis.text.y = element_text(size = 10))
+                  axis.title.x = element_text(face = "bold"),
+                  axis.title.y = element_text(face = "bold"))
 
 c4 <- ggplot(data = dfSurveyNew, aes(x = schoolYears, fill = cuadrantes)) +
             geom_bar(position = 'dodge') +
@@ -164,14 +179,16 @@ c4 <- ggplot(data = dfSurveyNew, aes(x = schoolYears, fill = cuadrantes)) +
                  y = "Anzahl der Beobachtung",
                  x = " ",
                  fill = "Armutskategorie") +
-            scale_x_discrete(limits=c('Kein Schulbesuch','Grundschule', 'Mittelschule', 'Oberschule', 'Studium')) +
+            scale_x_discrete(limits = c('Kein Schulbesuch','Grundschule', 'Mittelschule', 'Oberschule', 'Studium')) +
             theme(plot.title = element_text(size = 14, face = "bold"),
-                  axis.title.y = element_text(size = 10),
                   axis.line.x = element_line(color = "black", size = 0.5),
                   axis.line.y = element_line(color = "black", size = 0.5),
+                  axis.text.y = element_text(size = 10),
                   axis.text.x = element_text(size = 10),
-                  axis.text.y = element_text(size = 10)) + facet_grid(ic_rezedu ~ ., labeller = as_labeller(c('0' = 'Keine Verzögerung',
-                                                                                                              '1' = 'Mit Verzögerung')))
+                  axis.title.x = element_text(face = "bold"),
+                  axis.title.y = element_text(face = "bold")) + 
+            facet_grid(ic_rezedu ~ ., labeller = as_labeller(c('0' = 'Keine Verzögerung',
+                                                               '1' = 'Mit Verzögerung')))
 
 ggplot(data = dfSurveyNew, aes(x = ic_rezedu, fill = cuadrantes)) +
             geom_bar(position = 'dodge') +
