@@ -16,6 +16,7 @@ options(xtable.floating = FALSE)
 options(xtable.timestamp = "")
 library(Hmisc)
 library(params)
+library(gridExtra)
 ```
 
 ```{r Daten importieren, warning=FALSE}
@@ -64,57 +65,61 @@ dfSurveyNew <- dfSurveyNew[ , !(names(dfSurveyNew)  %in% hilfsvariablen)]
 dfCensusNew <- dfCensusNew[ , !(names(dfCensusNew)  %in% hilfsvariablen)]
 
 # Transformation numerischer in nomialer Variablen. Ausgenommen sind edad und anos_escolaridad.
+dfSurveyNew$asis_esc <- dfSurveyNew$asis_esc - 1
 dfSurveyNew <- data.frame(lapply(dfSurveyNew[, -c(3,7)], function(x) factor(x)), 'edad' = dfSurveyNew[,3], 'anos_escolaridad' = dfSurveyNew[,7])
 dfSurveyNew$sexo <- factor(dfSurveyNew$sexo, levels = c(0,1), labels = c('Weiblich','Männlich'))
 # dfCensusNew <- data.frame(lapply(dfCensus[, -c(3,7)], function(x) factor(x)), 'edad' = dfCensus[,3], 'anos_escolaridad' = dfCensus[,7])
-
-# xtable(
-#     aggregate(dfSurveyNew[,(names(dfSurveyNew) %in% c('edad', 'anos_escolaridad'))],
-#               by = list(dfSurveyNew$cuadrantes),
-#               FUN = median,
-#               na.rm = TRUE,
-#               na.action = na.pass)
-# )
 
 # Grafiken
 c1 <- ggplot(data = dfSurveyNew, aes(x = cuadrantes, fill = cuadrantes)) +
             geom_bar(width = 0.75) +
             theme_light() +
-            labs(title = "Verteilung der Armutskategorien",
+            labs(title = "C.1 Verteilung der Armutskategorien",
                  y = "Anzahl der Beobachtung",
                  x = "Armutskategorie") +
             scale_fill_discrete(guide = FALSE) +
             scale_x_discrete(labels = c("extreme\nArmut", "gemilderte\nArmut", 
-                                        "anfällige\nArmut\nwegen\nEinkommen",
-                                        "anfällige\nArmut\nwegen\nSozialmängeln", 
+                                        "anfällige Armut\naufgrund\nniedrigem\nEinkommen",
+                                        "anfällige Armut\naufgrund\nSozialmangel", 
                                         "keine\nArmut")) +
-            theme(plot.title = element_text(size = 14, face = "bold"),
+            theme(plot.title = element_text(size = 28, face = "bold"),
                   axis.line.x = element_line(color = "black", size = 0.5),
                   axis.line.y = element_line(color = "black", size = 0.5),
-                  axis.text.y = element_text(size = 10),
-                  axis.text.x = element_text(size = 10),
-                  axis.title.x = element_text(face = "bold"),
-                  axis.title.y = element_text(face = "bold"))
+                  axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0)),
+                  axis.text.y = element_text(size = 20, margin = margin(t = 0, r = 0, b = 0, l = 10)),
+                  #axis.title.x = element_text(size = 24, face = "bold"),
+                  axis.title.x = element_blank(),
+                  axis.title.y = element_text(size = 24, face = "bold"),
+                  axis.ticks.length=unit(.25, "cm"),
+                  axis.ticks = element_line(colour = "black"))
 
 c2 <- ggplot(data = dfSurveyNew, aes(x = cuadrantes, fill = sexo)) +
             geom_bar(position = 'dodge', width = 0.75) +
             theme_light() +
-            labs(title = "Armutskategorie nach Geschlecht",
+            labs(title = "C.2 Armutskategorie nach Geschlecht",
                  y = "Anzahl der Beobachtung",
                  x = " ",
                  fill = "Geschlecht") +
             scale_x_discrete("Armutskategorie",
                              labels = c("extreme\nArmut", "gemilderte\nArmut", 
-                                        "anfällige\nArmut\nwegen\nEinkommen",
-                                        "anfällige\nArmut\nwegen\nSozialmängeln",
+                                        "anfällige Armut\naufgrund\nniedrigem\nEinkommen",
+                                        "anfällige Armut\naufgrund\nSozialmangel", 
                                         "keine\nArmut")) +
-            theme(plot.title = element_text(size = 14, face = "bold"),
+            theme(plot.title = element_text(size = 28, face = "bold"),
                   axis.line.x = element_line(color = "black", size = 0.5),
                   axis.line.y = element_line(color = "black", size = 0.5),
-                  axis.text.y = element_text(size = 10),
-                  axis.text.x = element_text(size = 10),
-                  axis.title.x = element_text(face = "bold"),
-                  axis.title.y = element_text(face = "bold"))
+                  axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0)),
+                  axis.text.y = element_text(size = 20, margin = margin(t = 0, r = 0, b = 0, l = 10)),
+                  #axis.title.x = element_text(size = 24, face = "bold"),
+                  axis.title.x = element_blank(),
+                  axis.title.y = element_text(size = 24, face = "bold"),
+                  axis.ticks.length=unit(.25, "cm"),
+                  axis.ticks = element_line(colour = "black"),
+                  legend.text = element_text(size = 18),
+                  legend.title = element_text(size = 20, face = "bold"),
+                  legend.position = c(0.9,0.9),
+                  legend.background = element_blank(),
+                  legend.box.background = element_rect(colour = "black"))
 
 dfSurveyNew <- dfSurveyNew %>% mutate(ageGroup = case_when(
         edad < 6 ~ "< 6",
@@ -126,36 +131,49 @@ dfSurveyNew <- dfSurveyNew %>% mutate(ageGroup = case_when(
 
 dfSurveyNew <- dfSurveyNew %>% mutate(schoolYears = case_when(
         anos_escolaridad == 0 ~ "Kein Schulbesuch",
-        anos_escolaridad < 6 ~ "Grundschule",
-        anos_escolaridad < 9 ~ "Mittelschule",
-        anos_escolaridad < 12 ~ "Oberschule", 
+        anos_escolaridad <= 6 ~ "Grundschule",
+        anos_escolaridad <= 9 ~ "Mittelschule",
+        anos_escolaridad <= 12 ~ "Oberschule", 
         TRUE ~ "Studium"
     )
 )
 
 c3 <- ggplot(data = dfSurveyNew, aes(x = edad, fill = cuadrantes)) +
             geom_histogram(position = "fill", bins = 30) +
-            geom_vline(xintercept = mean(dfSurveyNew$edad), linetype = "dashed") +
+            geom_vline(xintercept = mean(dfSurveyNew$edad), linetype = "dashed", size = 1) +
             theme_light() +
-            labs(title = "Armutskategorie nach Alter",
+            labs(title = "C.3 Armutskategorie nach Alter",
                  y = "Anteil der Beobachtungen",
-                 x = " ",
+                 x = "Alter",
                  fill = "Armutskategorie") +
             scale_x_continuous(breaks = seq(0, 100, by = 10), expand = c(0,0)) +
             scale_y_continuous(expand = c(0,0)) +
             scale_fill_discrete("Armutskategorie",
                                 breaks = c("1", "2", "3", "4", "5"), 
-                                labels = c("extreme Armut", "gemilderte Armut", 
-                                           "anfällige Armut wegen Einkommen", 
-                                           "anfällige Armut wegen Sozialmängeln", 
-                                           "keine Armut")) +
-            theme(plot.title = element_text(size = 14, face = "bold"),
+                                labels = c("extreme Armut\t", "gemilderte Armut\t", 
+                                        "anfällige Armut aufgrund niedrigem Einkommen",
+                                        "anfällige Armut aufgrund Sozialmangel", 
+                                        "keine Armut")) +
+            theme(plot.title = element_text(size = 28, face = "bold"),
                   axis.line.x = element_line(color = "black", size = 0.5),
                   axis.line.y = element_line(color = "black", size = 0.5),
-                  axis.text.y = element_text(size = 10),
-                  axis.text.x = element_text(size = 10),
-                  axis.title.x = element_text(face = "bold"),
-                  axis.title.y = element_text(face = "bold"))
+                  axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0)),
+                  axis.text.y = element_text(size = 20, margin = margin(t = 0, r = 0, b = 0, l = 10)),
+                  axis.title.x = element_text(size = 24, face = "bold"),
+                  #axis.title.x = element_blank(),
+                  axis.title.y = element_text(size = 24, face = "bold"),
+                  axis.ticks.length=unit(.25, "cm"),
+                  axis.ticks = element_line(colour = "black"),
+                  legend.title = element_blank(),
+                  legend.margin = margin(c(0,10,0,0)),
+                  legend.text = element_text(size = 18),
+                  legend.position = "bottom",
+                  legend.background = element_blank(),
+                  legend.box.background = element_rect(colour = "black"),
+                  legend.box.margin = margin(c(5,0,5,0)),
+                  legend.key.width = unit(1.5,"line"),
+                  legend.key.height = unit(2,"line")) +
+            guides(fill=guide_legend(nrow = 2))
 
 ggplot(data = dfSurveyNew, aes(x = ageGroup, fill = cuadrantes)) +
             geom_bar(position = 'dodge') +
@@ -175,37 +193,130 @@ ggplot(data = dfSurveyNew, aes(x = ageGroup, fill = cuadrantes)) +
 c4 <- ggplot(data = dfSurveyNew, aes(x = schoolYears, fill = cuadrantes)) +
             geom_bar(position = 'dodge') +
             theme_light() +
-            labs(title = "Armutskategorie nach Schulbesuch",
+            labs(title = "C.4 Armutskategorie nach Bildungsniveau",
                  y = "Anzahl der Beobachtung",
-                 x = " ",
-                 fill = "Armutskategorie") +
+                 x = "Bildungsniveau",
+                 fill = "Armutskategorie") + 
             scale_x_discrete(limits = c('Kein Schulbesuch','Grundschule', 'Mittelschule', 'Oberschule', 'Studium')) +
-            theme(plot.title = element_text(size = 14, face = "bold"),
+            scale_fill_discrete("Armutskategorie",
+                                breaks = c("1", "2", "3", "4", "5"), 
+                                labels = c("extreme Armut\t", "gemilderte Armut\t", 
+                                        "anfällige Armut aufgrund niedrigem Einkommen",
+                                        "anfällige Armut aufgrund Sozialmangel", 
+                                        "keine Armut")) +
+            theme(plot.title = element_text(size = 28, face = "bold"),
                   axis.line.x = element_line(color = "black", size = 0.5),
                   axis.line.y = element_line(color = "black", size = 0.5),
-                  axis.text.y = element_text(size = 10),
-                  axis.text.x = element_text(size = 10),
-                  axis.title.x = element_text(face = "bold"),
-                  axis.title.y = element_text(face = "bold")) + 
+                  axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0)),
+                  axis.text.y = element_text(size = 20, margin = margin(t = 0, r = 0, b = 0, l = 10)),
+                  axis.title.x = element_text(size = 24, face = "bold"),
+                  #axis.title.x = element_blank(),
+                  axis.title.y = element_text(size = 24, face = "bold"),
+                  axis.ticks.length=unit(.25, "cm"),
+                  axis.ticks = element_line(colour = "black"),
+                  legend.title = element_blank(),
+                  legend.margin = margin(c(0,10,0,0)),
+                  legend.text = element_text(size = 18),
+                  legend.position = "bottom",
+                  legend.background = element_blank(),
+                  legend.box.background = element_rect(colour = "black"),
+                  legend.box.margin = margin(c(5,0,5,0)),
+                  legend.key.width = unit(1.5,"line"),
+                  legend.key.height = unit(2,"line"),
+                  strip.text = element_text(colour = "black", size = 16)) +
+            guides(fill=guide_legend(nrow = 2)) +
             facet_grid(ic_rezedu ~ ., labeller = as_labeller(c('0' = 'Keine Verzögerung',
-                                                               '1' = 'Mit Verzögerung')))
+                                                               '1' = 'Mit Verzögerung'))) 
 
-ggplot(data = dfSurveyNew, aes(x = ic_rezedu, fill = cuadrantes)) +
-            geom_bar(position = 'dodge') +
+c5 <- ggplot(data = dfSurveyNew, aes(x = rururb, fill = cuadrantes)) +
+            geom_histogram(stat = 'count', position = 'fill') +
             theme_light() +
-            labs(title = "Armutskategorie nach Schulbesuch",
-                 y = "Anzahl der Beobachtung",
-                 x = " ",
-                 fill = "Armutskategorie") +
-            theme(plot.title = element_text(size = 14, face = "bold"),
-                  axis.title.y = element_text(size = 10),
+            labs(title = "C.5 Armutskategorie nach Wohnort",
+                 y = "Anteil der Beobachtung je Wohnort",
+                 x = " ") +
+            scale_fill_discrete(labels = c("extreme Armut\t", "gemilderte Armut\t", 
+                                        "anfällige Armut aufgrund niedrigem Einkommen",
+                                        "anfällige Armut aufgrund Sozialmangel", 
+                                        "keine Armut")) +
+            scale_x_discrete(breaks = c("0", "1"), 
+                             labels = c("städtisch", "ländlich"),
+                             limits = c("1", "0")) +
+            scale_y_continuous(labels = scales::percent_format()) +
+            theme(plot.title = element_text(size = 28, face = "bold"),
                   axis.line.x = element_line(color = "black", size = 0.5),
                   axis.line.y = element_line(color = "black", size = 0.5),
-                  axis.text.x = element_text(size = 10),
-                  axis.text.y = element_text(size = 10))
+                  axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0)),
+                  axis.text.y = element_text(size = 20, margin = margin(t = 0, r = 0, b = 0, l = 10)),
+                  #axis.title.x = element_text(size = 24, face = "bold"),
+                  axis.ticks.length=unit(.25, "cm"),
+                  axis.ticks = element_line(colour = "black"),
+                  axis.title.x = element_blank(),
+                  axis.title.y = element_text(size = 24, face = "bold"),
+                  legend.title = element_blank(),
+                  legend.margin = margin(c(0,10,0,0)),
+                  legend.text = element_text(size = 18),
+                  legend.position = "bottom",
+                  legend.background = element_blank(),
+                  legend.box.background = element_rect(colour = "black"),
+                  legend.box.margin = margin(c(5,0,5,0)),
+                  legend.key.width = unit(1.5,"line"),
+                  legend.key.height = unit(2,"line"),
+                  strip.text = element_text(colour = "black", size = 16)) +
+            guides(fill=guide_legend(nrow = 2)) 
+
+c6 <- ggplot(data = dfSurveyNew, aes(x = tam_loc, fill = cuadrantes)) +
+            geom_histogram(stat = 'count', position = 'fill') +
+            theme_light() +
+            labs(title = "C.6 Armutskategorie nach Einwohnerzahl des Wohnorts",
+                 y = "Anteil der Beobachtung je Wohnortgröße",
+                 x = " ") +
+            scale_fill_discrete(labels = c("extreme Armut\t", "gemilderte Armut\t", 
+                                        "anfällige Armut aufgrund niedrigem Einkommen",
+                                        "anfällige Armut aufgrund Sozialmangel", 
+                                        "keine Armut")) +
+            scale_x_discrete(breaks = c("4", "3", "2", "1"), 
+                             labels = c("weniger als 2.500", "2.500 bis 14.999",
+                                           "15.000 bis 99.999", "mehr als 100.000"),
+                             limits = c("4", "3","2","1")) +
+            scale_y_continuous(labels = scales::percent_format()) +
+            theme(plot.title = element_text(size = 28, face = "bold"),
+                  axis.line.x = element_line(color = "black", size = 0.5),
+                  axis.line.y = element_line(color = "black", size = 0.5),
+                  axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0)),
+                  axis.text.y = element_text(size = 20, margin = margin(t = 0, r = 0, b = 0, l = 10)),
+                  #axis.title.x = element_text(size = 24, face = "bold"),
+                  axis.title.x = element_blank(),
+                  axis.title.y = element_text(size = 24, face = "bold"),
+                  axis.ticks.length=unit(.25, "cm"),
+                  axis.ticks = element_line(colour = "black"),
+                  legend.title = element_blank(),
+                  legend.margin = margin(c(0,10,0,0)),
+                  legend.text = element_text(size = 18),
+                  legend.position = "bottom",
+                  legend.background = element_blank(),
+                  legend.box.background = element_rect(colour = "black"),
+                  legend.box.margin = margin(c(5,0,5,0)),
+                  legend.key.width = unit(1.5,"line"),
+                  legend.key.height = unit(2,"line"),
+                  strip.text = element_text(colour = "black", size = 16)) +
+            guides(fill=guide_legend(nrow = 2)) +
+            facet_grid(rururb ~ ., labeller = as_labeller(c('0' = 'städtisch',
+                                                            '1' = 'ländlich')))
 
 # Behandlung fehlender Werte
-dfSurveyNew <- na.omit(dfSurveyNew)
+xtable(aggregate(dfSurveyNew['anos_escolaridad'],
+          by = list(dfSurveyNew$cuadrantes),
+          FUN = median,
+          na.rm = TRUE,
+          na.action = na.pass))
+
+Mode2 <- function(x) {tab <- table(x); names(tab)[which.max(tab)]}
+
+xtable(aggregate(dfSurveyNew[c('asis_esc', 'habl_ind')],
+          by = list(dfSurveyNew$cuadrantes),
+          FUN = Mode2))
+
+#dfSurveyNew <- na.omit(dfSurveyNew)
 #str(dfSurveyNew)
 ```
 
