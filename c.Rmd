@@ -38,16 +38,14 @@ dfSurvey <- data.frame("cuadrantes" = dfSurvey[,"cuadrantes"],
 ```{r Datenverständnis, warning = FALSE}
 # Anteil an fehlenden Werten bestimmen und in einer Tabelle zusammenfassen
 missingSurvey <- data.frame("Variable" = colnames(dfSurvey), "MissingSurvey" = t(data.frame(lapply(dfSurvey, function(x) round(100*sum(is.na(x))/length(x),1)))), row.names = NULL)
-
 missingCensus <- data.frame("Variable" = colnames(dfCensus), "MissingCensus" = t(data.frame(lapply(dfCensus, function(x) round(100*sum(is.na(x))/length(x),1)))), row.names = NULL)
-
 missingDF <- left_join(missingSurvey, missingCensus, by = 'Variable')
 missingAll <- left_join(missingSurvey, missingCensus, by = 'Variable')
-
 missingDF <- missingDF[which(missingDF[,2] > 10 | missingDF[,3] > 10),]
 row.names(missingDF) <- c(1:nrow(missingDF))
 
-# Latex-Formatierung #xtable(missingDF) 
+# Latex-Tabelle-Formatierung 
+#xtable(missingDF) 
 
 # Variablen mit zu vielen fehlenden Werten werden entfernt
 dfCensus <- dfCensus[, !(colnames(dfCensus) %in% missingDF[1:5,1])]
@@ -65,15 +63,13 @@ hilfsvariablen <- c('est_dis', 'factor', 'idD', 'mun', 'upm')
 dfSurvey <- dfSurvey[ , !(names(dfSurvey)  %in% hilfsvariablen)]
 dfCensus <- dfCensus[ , !(names(dfCensus)  %in% hilfsvariablen)]
 
-# Transformation numerischer in nomialer Variablen. Ausgenommen sind edad und anos_escolaridad.
-dfSurvey$asis_esc <- dfSurvey$asis_esc - 1
-names(dfSurvey)[7] <- 'anos_escolaridad'
-str(dfSurvey)
-# dfSurvey <- data.frame(lapply(dfSurvey[, -c(3,7)], 
-#                                  function(x) factor(x)), 'edad' = dfSurvey[,3], 
-#                                                          'anos_escolaridad' = dfSurvey[,7])
+# Transformation numerischer in nomialer Variablen. Ausgenommen sind edad und anos_escolaridad, da sie metrisch skaliert sind.
+dfSurvey$asis_esc <- dfSurvey$asis_esc - 1 #Damit gleiche Werte mit Census Datei
+names(dfSurvey)[7] <- 'anos_escolaridad' #Umbenennung für richtige Zeichencodierung
+#str(dfSurvey)
 dfSurvey$cuadrantes <- factor(dfSurvey$cuadrantes, levels = c(1,2,3,4,5), 
-                                 labels = c('extrem','gemildert','anfällig aufgrund Einkommen', 
+                                 labels = c('extrem','gemildert',
+                                            'anfällig aufgrund Einkommen', 
                                             'anfällig aufgrund Sozialmangel', 'keine'))
 dfSurvey$parentesco <- factor(dfSurvey$parentesco)
 dfSurvey$sexo <- factor(dfSurvey$sexo, levels = c(0,1), labels = c('Weiblich','Männlich'))
@@ -90,8 +86,7 @@ dfSurvey$ic_asalud <- factor(dfSurvey$ic_asalud, levels = c(0,1), labels = c('Ne
 dfSurvey$ic_cv <- factor(dfSurvey$ic_cv, levels = c(0,1), labels = c('Nein','Ja'))
 dfSurvey$ic_sbv <- factor(dfSurvey$ic_sbv, levels = c(0,1), labels = c('Nein','Ja'))
 dfSurvey$rururb <- factor(dfSurvey$rururb, levels = c(0,1), labels = c('Städtisch','Ländlich'))
-dfSurvey$tam_loc <- factor(dfSurvey$tam_loc, levels = c(1,2,3,4), labels = c('mehr als 100.000','15.000 bis 99.999',
-                                                                                   '2.500 bis 14.999', 'weniger als 2.500'))
+dfSurvey$tam_loc <- factor(dfSurvey$tam_loc, levels = c(1,2,3,4), labels = c('mehr als 100.000','15.000 bis 99.999', '2.500 bis 14.999', 'weniger als 2.500'))
 
 # dfCensus <- data.frame(lapply(dfCensus[, -c(3,7)], function(x) factor(x)), 'edad' = dfCensus[,3], 'anos_escolaridad' = dfCensus[,7])
 
@@ -138,7 +133,7 @@ c2 <- ggplot(data = dfSurvey, aes(x = cuadrantes, fill = sexo)) +
                   #axis.title.x = element_text(size = 24, face = "bold"),
                   axis.title.x = element_blank(),
                   axis.title.y = element_text(size = 24, face = "bold"),
-                  axis.ticks.length=unit(.25, "cm"),
+                  axis.ticks.length = unit(.25, "cm"),
                   axis.ticks = element_line(colour = "black"),
                   legend.text = element_text(size = 18),
                   legend.title = element_text(size = 20, face = "bold"),
@@ -163,8 +158,7 @@ c2 <- ggplot(data = dfSurvey, aes(x = cuadrantes, fill = sexo)) +
 #     )
 # )
 # 
-# dfSurvey$eduLevel <- factor(dfSurvey$eduLevel, levels = c("Kein Schulbesuch", "Grundschule", 
-#                                                                 "Mittelschule", "Oberschule","Studium"))
+# dfSurvey$eduLevel <- factor(dfSurvey$eduLevel, levels = c("Kein Schulbesuch", "Grundschule", "Mittelschule", "Oberschule","Studium"))
 
 c3 <- ggplot(data = dfSurvey, aes(x = edad, fill = cuadrantes)) +
             geom_histogram(position = "fill", bins = 30) +
@@ -190,7 +184,7 @@ c3 <- ggplot(data = dfSurvey, aes(x = edad, fill = cuadrantes)) +
                   axis.title.x = element_text(size = 24, face = "bold"),
                   #axis.title.x = element_blank(),
                   axis.title.y = element_text(size = 24, face = "bold"),
-                  axis.ticks.length=unit(.25, "cm"),
+                  axis.ticks.length = unit(.25, "cm"),
                   axis.ticks = element_line(colour = "black"),
                   legend.title = element_blank(),
                   legend.margin = margin(c(0,10,0,0)),
@@ -201,7 +195,7 @@ c3 <- ggplot(data = dfSurvey, aes(x = edad, fill = cuadrantes)) +
                   legend.box.margin = margin(c(5,0,5,0)),
                   legend.key.width = unit(1.5,"line"),
                   legend.key.height = unit(2,"line")) +
-            guides(fill=guide_legend(nrow = 2))
+            guides(fill = guide_legend(nrow = 2))
 
 c4 <- ggplot(data = dfSurvey, aes(x = anos_escolaridad, fill = cuadrantes)) +
             geom_histogram(stat = 'count', position = 'fill') +
@@ -227,7 +221,7 @@ c4 <- ggplot(data = dfSurvey, aes(x = anos_escolaridad, fill = cuadrantes)) +
                   axis.title.x = element_text(size = 24, face = "bold"),
                   #axis.title.x = element_blank(),
                   axis.title.y = element_text(size = 24, face = "bold"),
-                  axis.ticks.length=unit(.25, "cm"),
+                  axis.ticks.length = unit(.25, "cm"),
                   axis.ticks = element_line(colour = "black"),
                   legend.title = element_blank(),
                   legend.margin = margin(c(0,10,0,0)),
@@ -239,7 +233,7 @@ c4 <- ggplot(data = dfSurvey, aes(x = anos_escolaridad, fill = cuadrantes)) +
                   legend.key.width = unit(1.5,"line"),
                   legend.key.height = unit(2,"line"),
                   strip.text = element_text(colour = "black", size = 16)) +
-            guides(fill=guide_legend(nrow = 2)) +
+            guides(fill = guide_legend(nrow = 2)) +
             facet_grid(ic_rezedu ~ ., labeller = as_labeller(c('Nein' = 'Keine Verzögerung',
                                                                'Ja' = 'Mit Verzögerung'))) 
 
@@ -264,7 +258,7 @@ c5 <- ggplot(data = dfSurvey, aes(x = rururb, fill = cuadrantes)) +
                   axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0)),
                   axis.text.y = element_text(size = 20, margin = margin(t = 0, r = 0, b = 0, l = 10)),
                   #axis.title.x = element_text(size = 24, face = "bold"),
-                  axis.ticks.length=unit(.25, "cm"),
+                  axis.ticks.length = unit(.25, "cm"),
                   axis.ticks = element_line(colour = "black"),
                   axis.title.x = element_blank(),
                   axis.title.y = element_text(size = 24, face = "bold"),
@@ -278,7 +272,7 @@ c5 <- ggplot(data = dfSurvey, aes(x = rururb, fill = cuadrantes)) +
                   legend.key.width = unit(1.5,"line"),
                   legend.key.height = unit(2,"line"),
                   strip.text = element_text(colour = "black", size = 16)) +
-            guides(fill=guide_legend(nrow = 2)) 
+            guides(fill = guide_legend(nrow = 2)) 
 
 c6 <- ggplot(data = dfSurvey, aes(x = tam_loc, fill = cuadrantes)) +
             geom_histogram(stat = 'count', position = 'fill') +
@@ -301,7 +295,7 @@ c6 <- ggplot(data = dfSurvey, aes(x = tam_loc, fill = cuadrantes)) +
                   #axis.title.x = element_text(size = 24, face = "bold"),
                   axis.title.x = element_blank(),
                   axis.title.y = element_text(size = 24, face = "bold"),
-                  axis.ticks.length=unit(.25, "cm"),
+                  axis.ticks.length = unit(.25, "cm"),
                   axis.ticks = element_line(colour = "black"),
                   legend.title = element_blank(),
                   legend.margin = margin(c(0,10,0,0)),
@@ -313,26 +307,24 @@ c6 <- ggplot(data = dfSurvey, aes(x = tam_loc, fill = cuadrantes)) +
                   legend.key.width = unit(1.5,"line"),
                   legend.key.height = unit(2,"line"),
                   strip.text = element_text(colour = "black", size = 16)) +
-            guides(fill=guide_legend(nrow = 2)) +
+            guides(fill = guide_legend(nrow = 2)) +
             facet_grid(rururb ~ .)
 
 # Behandlung fehlender Werte
+## Fehlende Werte asis_esc & habl_ind
+Mode2 <- function(x) {tab <- table(x); names(tab)[which.max(tab)]}
+#Quelle: https://stat.ethz.ch/pipermail/r-help/2010-March/231975.html 
+aggregate(dfSurvey[c('asis_esc', 'habl_ind')],
+          by = list(dfSurvey$cuadrantes),
+          FUN = Mode2)
+dfSurvey$asis_esc[which(is.na(dfSurvey$asis_esc))] <- 'Ja'
+dfSurvey$habl_ind[which(is.na(dfSurvey$habl_ind))] <- 'Nein'
+## Fehlende Werte anos_escolaridad
 anosCuad <- aggregate(dfSurvey['anos_escolaridad'],
           by = list(dfSurvey$cuadrantes),
           FUN = median,
           na.rm = TRUE,
           na.action = na.pass)
-
-Mode2 <- function(x) {tab <- table(x); names(tab)[which.max(tab)]}
-#Quelle: https://stat.ethz.ch/pipermail/r-help/2010-March/231975.html 
-
-aggregate(dfSurvey[c('asis_esc', 'habl_ind')],
-          by = list(dfSurvey$cuadrantes),
-          FUN = Mode2)
-
-dfSurvey$asis_esc[which(is.na(dfSurvey$asis_esc))] <- 'Ja'
-dfSurvey$habl_ind[which(is.na(dfSurvey$habl_ind))] <- 'Nein'
-
 for (i in c('extrem','gemildert','anfällig aufgrund Einkommen', 'anfällig aufgrund Sozialmangel', 'keine')) {
     
     dfSurvey$anos_escolaridad[which(is.na(dfSurvey$anos_escolaridad) &
@@ -343,20 +335,24 @@ for (i in c('extrem','gemildert','anfällig aufgrund Einkommen', 'anfällig aufg
 rm(i)
 rm(Mode2)
 
-dfSurvey <- na.omit(dfSurvey)
+# Kontrollieren, ob alle fehlenden Werte schon bereinigt wurden
+any(is.na(dfSurvey))
 
+str(dfSurvey)
+
+# Skalierung der Daten?
 # dfSurvey$edad <- (dfSurvey$edad-min(dfSurvey$edad))/(max(dfSurvey$edad)-min(dfSurvey$edad))
 # dfSurvey$anos_escolaridad <- (dfSurvey$anos_escolaridad-min(dfSurvey$anos_escolaridad))/(max(dfSurvey$anos_escolaridad)-min(dfSurvey$anos_escolaridad))
-```
 
-```{r Multimomiale logistische Regression}
 # Datensatz in Trainings- und Testdatendatz splitten
 library(caTools)
 set.seed(123)
 split = sample.split(dfSurvey$cuadrantes, SplitRatio = 0.75)
 trainingSurvey = subset(dfSurvey, split == TRUE)
 testSurvey = subset(dfSurvey, split == FALSE)
+```
 
+```{r Multimomiale logistische Regression}
 # multlogReg modellieren (anhand Trainingsdatensatz)
 library(nnet)
 fullMLR <- multinom(cuadrantes ~ ., data = trainingSurvey)
@@ -384,13 +380,16 @@ accuracy_MLR <- sum(diag(confMat_MLR))/sum(confMat_MLR)
 library(e1071)
 
 #tune <- tune.svm(cuadrantes ~ ., data = trainingSurvey, gamma =seq(.01, 0.1), cost = seq(0.1,1))
-#tune <- tune.svm(cuadrantes ~ ., data = trainingSurvey, gamma =seq(.01, 0.1, by = .01), cost = seq(0.1,1, by = 0.1))
+tune <- tune.svm(cuadrantes ~ ., data = trainingSurvey, 
+                 gamma = 10^(c(-5,-1,1,5)), 
+                 cost = 10^(c(-1,1)))
 
 classifierSVM <- svm(cuadrantes ~ .,
                   data = trainingSurvey,
                   type = "C-classification",
-                  kernel = "radial")
-                  #, gamma = tune$best.parameters$gamma, cost = tune$best.parameters$cost)
+                  kernel = "radial"
+                  , gamma = tune$best.parameters$gamma, 
+                  cost = tune$best.parameters$cost)
 
 # Predicting the Test set results
 y_pred_SVM = predict(classifierSVM, newdata = testSurvey[-1])
