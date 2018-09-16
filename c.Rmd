@@ -345,32 +345,51 @@ str(dfSurvey)
 # dfSurvey$anos_escolaridad <- (dfSurvey$anos_escolaridad-min(dfSurvey$anos_escolaridad))/(max(dfSurvey$anos_escolaridad)-min(dfSurvey$anos_escolaridad))
 
 # Datensatz in Trainings- und Testdatendatz splitten
-library(caTools)
+# library(caTools)
+# set.seed(123)
+# split = sample.split(dfSurvey$cuadrantes, SplitRatio = 0.75)
+# trainingSurvey = subset(dfSurvey, split == TRUE)
+# testSurvey = subset(dfSurvey, split == FALSE)
+
+# k cross validation
 set.seed(123)
-split = sample.split(dfSurvey$cuadrantes, SplitRatio = 0.75)
-trainingSurvey = subset(dfSurvey, split == TRUE)
-testSurvey = subset(dfSurvey, split == FALSE)
+flds <- createFolds(c(1:7810), k = 10, list = TRUE, returnTrain = FALSE)
 ```
 
 ```{r Multimomiale logistische Regression}
 # multlogReg modellieren (anhand Trainingsdatensatz)
 library(nnet)
-fullMLR <- multinom(cuadrantes ~ ., data = trainingSurvey)
-AICMLR <- step(fullMLR, direction = 'backward', trace = 0)
 
-fullMLR$vcoefnames[which(!(fullMLR$vcoefnames %in% AICMLR$vcoefnames))]
+accuracy_MLR <- data.frame(Fold = integer(), Accuracy = integer())
 
-#y_hat <- ifelse(y_prob < 0.5, 0 , 1 )
+# k cross validation
+for (i in c(1:10)) {
+    
+    testID <- i
+    trainID <- c(1:10)[which(!(c(1:10) == i))]
+    testSurvey <- dfSurvey[flds[[testID]],]
+    trainingSurvey <- dfSurvey[c(unlist(flds[trainID])),]
+    
+    fullMLR <- multinom(cuadrantes ~ ., data = trainingSurvey)
+    AICMLR <- step(fullMLR, direction = 'backward', trace = 0)
 
-# Vorhersage (anhand Testdatensatz)
-y_pred_MLR <- predict(AICMLR, newdata = testSurvey[-1])
-#y_pred <- ifelse(y_pred < 0.5, 0 , 1 )
+    # fullMLR$vcoefnames[which(!(fullMLR$vcoefnames %in% AICMLR$vcoefnames))]
 
-# Making the Confusion Matrix
-confMat_MLR = table(testSurvey[,1], y_pred_MLR)
+    #y_hat <- ifelse(y_prob < 0.5, 0 , 1 )
 
-# Genauigkeit
-accuracy_MLR <- sum(diag(confMat_MLR))/sum(confMat_MLR)
+    # Vorhersage (anhand Testdatensatz)
+    y_pred_MLR <- predict(AICMLR, newdata = testSurvey[-1])
+    #y_pred <- ifelse(y_pred < 0.5, 0 , 1 )
+    
+    # Making the Confusion Matrix
+    confMat_MLR = table(testSurvey[,1], y_pred_MLR)
+    
+    # Genauigkeit
+    #accuracy_MLR <- sum(diag(confMat_MLR))/sum(confMat_MLR)
+    accuracy_MLR[i,] <- c(i, sum(diag(confMat_MLR))/sum(confMat_MLR)) 
+}
+
+mean(accuracy_MLR$Accuracy)
 ```
 
 
@@ -381,24 +400,38 @@ library(e1071)
 
 #tune <- tune.svm(cuadrantes ~ ., data = trainingSurvey, gamma =seq(.01, 0.1), cost = seq(0.1,1))
 tune <- tune.svm(cuadrantes ~ ., data = trainingSurvey, 
-                 gamma = 10^(c(-5,-1,1,5)), 
-                 cost = 10^(c(-1,1)))
+                 gamma = 10^(c(-2:2)), 
+                 cost = 10^(c(-2:2)))
 
-classifierSVM <- svm(cuadrantes ~ .,
+accuracy_SVM <- data.frame(Fold = integer(), Accuracy = integer())
+
+# k cross validation
+for (i in c(1:10)) {
+    
+    testID <- i
+    trainID <- c(1:10)[which(!(c(1:10) == i))]
+    testSurvey <- dfSurvey[flds[[testID]],]
+    trainingSurvey <- dfSurvey[c(unlist(flds[trainID])),]
+    
+    classifierSVM <- svm(cuadrantes ~ .,
                   data = trainingSurvey,
                   type = "C-classification",
                   kernel = "radial"
                   , gamma = tune$best.parameters$gamma, 
                   cost = tune$best.parameters$cost)
 
-# Predicting the Test set results
-y_pred_SVM = predict(classifierSVM, newdata = testSurvey[-1])
+    # Predicting the Test set results
+    y_pred_SVM = predict(classifierSVM, newdata = testSurvey[-1])
+    
+    # Making the Confusion Matrix
+    confMat_SVM = table(true = testSurvey[,1], pred = y_pred_SVM)
+    
+    # Genauigkeit
+    accuracy_SVM[i,] <- c(i,sum(diag(confMat_SVM))/sum(confMat_SVM))
 
-# Making the Confusion Matrix
-confMat_SVM = table(true = testSurvey[,1], pred = y_pred_SVM)
+}
 
-# Genauigkeit
-accuracy_SVM <- sum(diag(confMat_SVM))/sum(confMat_SVM)
+mean(accuracy_SVM$Accuracy)
 ```
 
 
