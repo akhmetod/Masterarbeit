@@ -352,6 +352,7 @@ str(dfSurvey)
 # testSurvey = subset(dfSurvey, split == FALSE)
 
 # k cross validation
+library(caret)
 set.seed(123)
 flds <- createFolds(c(1:7810), k = 10, list = TRUE, returnTrain = FALSE)
 ```
@@ -361,6 +362,8 @@ flds <- createFolds(c(1:7810), k = 10, list = TRUE, returnTrain = FALSE)
 library(nnet)
 
 accuracy_MLR <- data.frame(Fold = integer(), Accuracy = integer())
+
+describe(dfSurvey$cuadrantes)
 
 # k cross validation
 for (i in c(1:10)) {
@@ -382,7 +385,7 @@ for (i in c(1:10)) {
     #y_pred <- ifelse(y_pred < 0.5, 0 , 1 )
     
     # Making the Confusion Matrix
-    confMat_MLR = table(testSurvey[,1], y_pred_MLR)
+    confMat_MLR = table(true = testSurvey[,1], pred = y_pred_MLR)
     
     # Genauigkeit
     #accuracy_MLR <- sum(diag(confMat_MLR))/sum(confMat_MLR)
