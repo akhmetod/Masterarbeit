@@ -31,8 +31,8 @@ dfSurvey <- data.frame("cuadrantes" = dfSurvey[,"cuadrantes"],
                        dfSurvey[,colnames(dfSurvey) %in% colnames(dfCensus)])
 
 # Deskriptive Statistik
-#describe(dfSurvey)
 #str(dfSurvey)
+#str(dfCensus)
 ```
 
 ```{r Datenverständnis, warning = FALSE}
@@ -41,8 +41,11 @@ missingSurvey <- data.frame("Variable" = colnames(dfSurvey), "MissingSurvey" = t
 missingCensus <- data.frame("Variable" = colnames(dfCensus), "MissingCensus" = t(data.frame(lapply(dfCensus, function(x) round(100*sum(is.na(x))/length(x),1)))), row.names = NULL)
 missingDF <- left_join(missingSurvey, missingCensus, by = 'Variable')
 missingAll <- left_join(missingSurvey, missingCensus, by = 'Variable')
-missingDF <- missingDF[which(missingDF[,2] > 10 | missingDF[,3] > 10),]
+missingDF <- missingDF[which(missingDF[,2] > 10 & missingDF[,3] > 10),]
 row.names(missingDF) <- c(1:nrow(missingDF))
+
+rm(missingSurvey)
+rm(missingCensus)
 
 # Latex-Tabelle-Formatierung 
 #xtable(missingDF) 
@@ -55,54 +58,71 @@ dfSurvey <- dfSurvey[, !(colnames(dfSurvey) %in% missingDF[1:5,1])]
 dfCensus <- dfCensus[, -which(colnames(dfCensus) %in% c('ent'))]
 dfSurvey <- dfSurvey[, -which(colnames(dfSurvey) %in% c('ent'))]
 
-# dfSurvey <- dfSurvey
-# dfCensus <- dfCensus
+
 
 # Hilfsvariablen werden entfernt
-hilfsvariablen <- c('est_dis', 'factor', 'idD', 'mun', 'upm')
+hilfsvariablen <- c('est_dis', 'factor', 'mun', 'upm')
 dfSurvey <- dfSurvey[ , !(names(dfSurvey)  %in% hilfsvariablen)]
 dfCensus <- dfCensus[ , !(names(dfCensus)  %in% hilfsvariablen)]
 
 # Transformation numerischer in nomialer Variablen. Ausgenommen sind edad und anos_escolaridad, da sie metrisch skaliert sind.
-dfSurvey$asis_esc <- dfSurvey$asis_esc - 1 #Damit gleiche Werte mit Census Datei
-names(dfSurvey)[7] <- 'anos_escolaridad' #Umbenennung für richtige Zeichencodierung
-#str(dfSurvey)
 dfSurvey$cuadrantes <- factor(dfSurvey$cuadrantes, levels = c(1,2,3,4,5), 
                                  labels = c('extrem','gemildert',
                                             'anfällig aufgrund Einkommen', 
                                             'anfällig aufgrund Sozialmangel', 'keine'))
-dfSurvey$parentesco <- factor(dfSurvey$parentesco)
-dfSurvey$sexo <- factor(dfSurvey$sexo, levels = c(0,1), labels = c('Weiblich','Männlich'))
-dfSurvey$habl_ind <- factor(dfSurvey$habl_ind, levels = c(0,1), labels = c('Nein','Ja'))
-dfSurvey$asis_esc <- factor(dfSurvey$asis_esc, levels = c(0,1), labels = c('Nein','Ja'))
-dfSurvey$pea <- factor(dfSurvey$pea)
-dfSurvey$c_ocupa <- factor(dfSurvey$c_ocupa)
-dfSurvey$sector_act <- factor(dfSurvey$sector_act)
-dfSurvey$jub <- factor(dfSurvey$jub, levels = c(0,1), labels = c('Nein','Ja'))
-dfSurvey$dhind_cy <- factor(dfSurvey$dhind_cy, levels = c(0,1), labels = c('Nein','Ja'))
-dfSurvey$dhind_parent <- factor(dfSurvey$dhind_parent, levels = c(0,1), labels = c('Nein','Ja'))
-dfSurvey$ic_rezedu <- factor(dfSurvey$ic_rezedu, levels = c(0,1), labels = c('Nein','Ja'))
-dfSurvey$ic_asalud <- factor(dfSurvey$ic_asalud, levels = c(0,1), labels = c('Nein','Ja'))
-dfSurvey$ic_cv <- factor(dfSurvey$ic_cv, levels = c(0,1), labels = c('Nein','Ja'))
-dfSurvey$ic_sbv <- factor(dfSurvey$ic_sbv, levels = c(0,1), labels = c('Nein','Ja'))
-dfSurvey$rururb <- factor(dfSurvey$rururb, levels = c(0,1), labels = c('Städtisch','Ländlich'))
-dfSurvey$tam_loc <- factor(dfSurvey$tam_loc, levels = c(1,2,3,4), labels = c('mehr als 100.000','15.000 bis 99.999', '2.500 bis 14.999', 'weniger als 2.500'))
 
-# dfCensus <- data.frame(lapply(dfCensus[, -c(3,7)], function(x) factor(x)), 'edad' = dfCensus[,3], 'anos_escolaridad' = dfCensus[,7])
+dfSurvey$asis_esc <- dfSurvey$asis_esc - 1 #Damit gleiche Werte mit Census Datei
+dfCensus$sexo <- dfCensus$sexo - 1 #Damit gleiche Werte mit Survey Datei
 
+names(dfSurvey)[7] <- 'anos_escolaridad' #Umbenennung für richtige Zeichencodierung
+names(dfCensus)[6] <- 'anos_escolaridad' #Umbenennung für richtige Zeichencodierung
+
+listDF <- c("dfSurvey", "dfCensus")
+
+for (i in c(1,2)) {
+    
+    df <- list(dfSurvey, dfCensus)[[i]]
+    
+    df$parentesco <- factor(df$parentesco)
+    df$sexo <- factor(df$sexo, levels = c(0,1), labels = c('Weiblich','Männlich'))
+    df$habl_ind <- factor(df$habl_ind, levels = c(0,1), labels = c('Nein','Ja'))
+    df$asis_esc <- factor(df$asis_esc, levels = c(0,1), labels = c('Nein','Ja'))
+    df$pea <- factor(df$pea)
+    df$c_ocupa <- factor(df$c_ocupa)
+    df$sector_act <- factor(df$sector_act)
+    df$jub <- factor(df$jub, levels = c(0,1), labels = c('Nein','Ja'))
+    df$dhind_cy <- factor(df$dhind_cy, levels = c(0,1), labels = c('Nein','Ja'))
+    df$dhind_parent <- factor(df$dhind_parent, levels = c(0,1), labels = c('Nein','Ja'))
+    df$ic_rezedu <- factor(df$ic_rezedu, levels = c(0,1), labels = c('Nein','Ja'))
+    df$ic_asalud <- factor(df$ic_asalud, levels = c(0,1), labels = c('Nein','Ja'))
+    df$ic_cv <- factor(df$ic_cv, levels = c(0,1), labels = c('Nein','Ja'))
+    df$ic_sbv <- factor(df$ic_sbv, levels = c(0,1), labels = c('Nein','Ja'))
+    df$rururb <- factor(df$rururb, levels = c(0,1), labels = c('Städtisch','Ländlich'))
+    df$tam_loc <- factor(df$tam_loc, levels = c(1,2,3,4), labels = c('mehr als 100.000','15.000 bis 99.999', '2.500 bis 14.999', 'weniger als 2.500'))
+    df$idD <- factor(df$idD)
+    
+    assign(listDF[i], df , envir = .GlobalEnv)
+}
+
+rm(df)
+rm(listDF)
+rm(i)
+
+```
+
+```{r Diagramme, warning = FALSE}
 # Grafiken
 c1 <- ggplot(data = dfSurvey, aes(x = cuadrantes, fill = cuadrantes)) +
             geom_bar(width = 0.75) +
             theme_light() +
-            labs(title = "C.1 Verteilung der Armutskategorien",
-                 y = "Anzahl der Beobachtung",
+            labs(y = "Anzahl der Beobachtung",
                  x = "Armutskategorie") +
             scale_fill_discrete(guide = FALSE) +
             scale_x_discrete(labels = c("extreme\nArmut", "gemilderte\nArmut", 
                                         "anfällige Armut\naufgrund\nniedrigem\nEinkommen",
                                         "anfällige Armut\naufgrund\nSozialmangel", 
                                         "keine\nArmut")) +
-            theme(plot.title = element_text(size = 28, face = "bold"),
+            theme(#plot.title = element_text(size = 28, face = "bold"),
                   axis.line.x = element_line(color = "black", size = 0.5),
                   axis.line.y = element_line(color = "black", size = 0.5),
                   axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0)),
@@ -113,10 +133,13 @@ c1 <- ggplot(data = dfSurvey, aes(x = cuadrantes, fill = cuadrantes)) +
                   axis.ticks.length=unit(.25, "cm"),
                   axis.ticks = element_line(colour = "black"))
 
+ggsave(plot = c1, filename = "C1.pdf", width = 297, height = 210, units = "mm")
+
+
 c2 <- ggplot(data = dfSurvey, aes(x = cuadrantes, fill = sexo)) +
             geom_bar(position = 'dodge', width = 0.75) +
             theme_light() +
-            labs(title = "C.2 Armutskategorie nach Geschlecht",
+            labs(#title = "C.2 Armutskategorie nach Geschlecht",
                  y = "Anzahl der Beobachtung",
                  x = " ",
                  fill = "Geschlecht") +
@@ -125,7 +148,7 @@ c2 <- ggplot(data = dfSurvey, aes(x = cuadrantes, fill = sexo)) +
                                         "anfällige Armut\naufgrund\nniedrigem\nEinkommen",
                                         "anfällige Armut\naufgrund\nSozialmangel", 
                                         "keine\nArmut")) +
-            theme(plot.title = element_text(size = 28, face = "bold"),
+            theme(#plot.title = element_text(size = 28, face = "bold"),
                   axis.line.x = element_line(color = "black", size = 0.5),
                   axis.line.y = element_line(color = "black", size = 0.5),
                   axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0)),
@@ -140,6 +163,9 @@ c2 <- ggplot(data = dfSurvey, aes(x = cuadrantes, fill = sexo)) +
                   legend.position = c(0.9,0.9),
                   legend.background = element_blank(),
                   legend.box.background = element_rect(colour = "black"))
+
+ggsave(plot = c2, filename = "C2.pdf", width = 297, height = 210, units = "mm")
+
 
 # dfSurvey <- dfSurvey %>% mutate(ageGroup = case_when(
 #         edad < 6 ~ "< 6",
@@ -164,7 +190,7 @@ c3 <- ggplot(data = dfSurvey, aes(x = edad, fill = cuadrantes)) +
             geom_histogram(position = "fill", bins = 30) +
             geom_vline(xintercept = mean(dfSurvey$edad), linetype = "dashed", size = 1) +
             theme_light() +
-            labs(title = "C.3 Armutskategorie nach Alter",
+            labs(#title = "C.3 Armutskategorie nach Alter",
                  y = "Anteil der Beobachtungen",
                  x = "Alter",
                  fill = "Armutskategorie") +
@@ -176,7 +202,7 @@ c3 <- ggplot(data = dfSurvey, aes(x = edad, fill = cuadrantes)) +
                                         "anfällige Armut aufgrund niedrigem Einkommen",
                                         "anfällige Armut aufgrund Sozialmangel", 
                                         "keine Armut")) +
-            theme(plot.title = element_text(size = 28, face = "bold"),
+            theme(#plot.title = element_text(size = 28, face = "bold"),
                   axis.line.x = element_line(color = "black", size = 0.5),
                   axis.line.y = element_line(color = "black", size = 0.5),
                   axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0)),
@@ -197,10 +223,12 @@ c3 <- ggplot(data = dfSurvey, aes(x = edad, fill = cuadrantes)) +
                   legend.key.height = unit(2,"line")) +
             guides(fill = guide_legend(nrow = 2))
 
+ggsave(plot = c3, filename = "C3.pdf", width = 297, height = 210, units = "mm")
+
 c4 <- ggplot(data = dfSurvey, aes(x = anos_escolaridad, fill = cuadrantes)) +
             geom_histogram(stat = 'count', position = 'fill') +
             theme_light() +
-            labs(title = "C.4 Armutskategorie nach Bildungsdauer",
+            labs(#title = "C.4 Armutskategorie nach Bildungsdauer",
                  y = "Anteil der Beobachtung je Alter",
                  x = "Bildungsjahre",
                  fill = "Armutskategorie") + 
@@ -213,7 +241,7 @@ c4 <- ggplot(data = dfSurvey, aes(x = anos_escolaridad, fill = cuadrantes)) +
                                         "anfällige Armut aufgrund niedrigem Einkommen",
                                         "anfällige Armut aufgrund Sozialmangel", 
                                         "keine Armut")) +
-            theme(plot.title = element_text(size = 28, face = "bold"),
+            theme(#plot.title = element_text(size = 28, face = "bold"),
                   axis.line.x = element_line(color = "black", size = 0.5),
                   axis.line.y = element_line(color = "black", size = 0.5),
                   axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0)),
@@ -237,11 +265,13 @@ c4 <- ggplot(data = dfSurvey, aes(x = anos_escolaridad, fill = cuadrantes)) +
             facet_grid(ic_rezedu ~ ., labeller = as_labeller(c('Nein' = 'Keine Verzögerung',
                                                                'Ja' = 'Mit Verzögerung'))) 
 
+ggsave(plot = c4, filename = "C4.pdf", width = 297, height = 210, units = "mm")
+
 
 c5 <- ggplot(data = dfSurvey, aes(x = rururb, fill = cuadrantes)) +
             geom_histogram(stat = 'count', position = 'fill') +
             theme_light() +
-            labs(title = "C.5 Armutskategorie nach Wohnort",
+            labs(#title = "C.5 Armutskategorie nach Wohnort",
                  y = "Anteil der Beobachtung je Wohnort",
                  x = " ") +
             scale_fill_discrete(labels = c("extreme Armut\t", "gemilderte Armut\t", 
@@ -252,7 +282,7 @@ c5 <- ggplot(data = dfSurvey, aes(x = rururb, fill = cuadrantes)) +
             #                  labels = c("städtisch", "ländlich"),
             #                  limits = c("1", "0")) +
             scale_y_continuous(labels = scales::percent_format()) +
-            theme(plot.title = element_text(size = 28, face = "bold"),
+            theme(#plot.title = element_text(size = 28, face = "bold"),
                   axis.line.x = element_line(color = "black", size = 0.5),
                   axis.line.y = element_line(color = "black", size = 0.5),
                   axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0)),
@@ -274,10 +304,12 @@ c5 <- ggplot(data = dfSurvey, aes(x = rururb, fill = cuadrantes)) +
                   strip.text = element_text(colour = "black", size = 16)) +
             guides(fill = guide_legend(nrow = 2)) 
 
+ggsave(plot = c5, filename = "C5.pdf", width = 297, height = 210, units = "mm")
+
 c6 <- ggplot(data = dfSurvey, aes(x = tam_loc, fill = cuadrantes)) +
             geom_histogram(stat = 'count', position = 'fill') +
             theme_light() +
-            labs(title = "C.6 Armutskategorie nach Einwohnerzahl des Wohnorts",
+            labs(#title = "C.6 Armutskategorie nach Einwohnerzahl des Wohnorts",
                  y = "Anteil der Beobachtung je Wohnortgröße",
                  x = " ") +
             scale_fill_discrete(labels = c("extreme Armut\t", "gemilderte Armut\t", 
@@ -287,7 +319,7 @@ c6 <- ggplot(data = dfSurvey, aes(x = tam_loc, fill = cuadrantes)) +
             scale_x_discrete(limits = c("weniger als 2.500", "2.500 bis 14.999",
                                            "15.000 bis 99.999", "mehr als 100.000")) +
             scale_y_continuous(labels = scales::percent_format()) +
-            theme(plot.title = element_text(size = 28, face = "bold"),
+            theme(#plot.title = element_text(size = 28, face = "bold"),
                   axis.line.x = element_line(color = "black", size = 0.5),
                   axis.line.y = element_line(color = "black", size = 0.5),
                   axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0)),
@@ -310,15 +342,23 @@ c6 <- ggplot(data = dfSurvey, aes(x = tam_loc, fill = cuadrantes)) +
             guides(fill = guide_legend(nrow = 2)) +
             facet_grid(rururb ~ .)
 
-# Behandlung fehlender Werte
+ggsave(plot = c6, filename = "C6.pdf", width = 297, height = 210, units = "mm")
+
+```
+
+```{r Behandlung fehlender Werte, warning = FALSE}
 ## Fehlende Werte asis_esc & habl_ind
-Mode2 <- function(x) {tab <- table(x); names(tab)[which.max(tab)]}
-#Quelle: https://stat.ethz.ch/pipermail/r-help/2010-March/231975.html 
+Mode2 <- function(x) {tab <- table(x); names(tab)[which.max(tab)]} #Quelle: https://stat.ethz.ch/pipermail/r-help/2010-March/231975.html 
 aggregate(dfSurvey[c('asis_esc', 'habl_ind')],
           by = list(dfSurvey$cuadrantes),
           FUN = Mode2)
 dfSurvey$asis_esc[which(is.na(dfSurvey$asis_esc))] <- 'Ja'
 dfSurvey$habl_ind[which(is.na(dfSurvey$habl_ind))] <- 'Nein'
+
+dfCensus$asis_esc[which(is.na(dfSurvey$asis_esc))] <- names(which.max(table(dfCensus['asis_esc'])))
+dfCensus$habl_ind[which(is.na(dfSurvey$habl_ind))] <- names(which.max(table(dfCensus['habl_ind'])))
+rm(Mode2)
+
 ## Fehlende Werte anos_escolaridad
 anosCuad <- aggregate(dfSurvey['anos_escolaridad'],
           by = list(dfSurvey$cuadrantes),
@@ -333,12 +373,14 @@ for (i in c('extrem','gemildert','anfällig aufgrund Einkommen', 'anfällig aufg
 }
 
 rm(i)
-rm(Mode2)
+
+dfCensus$anos_escolaridad[which(is.na(dfSurvey$anos_escolaridad))] <- median(dfCensus$anos_escolaridad, na.rm = TRUE)
+
+dfCensus <- na.omit(dfCensus)
 
 # Kontrollieren, ob alle fehlenden Werte schon bereinigt wurden
-any(is.na(dfSurvey))
-
-str(dfSurvey)
+all(!is.na(dfSurvey))
+all(!is.na(dfCensus))
 
 # Skalierung der Daten?
 # dfSurvey$edad <- (dfSurvey$edad-min(dfSurvey$edad))/(max(dfSurvey$edad)-min(dfSurvey$edad))
