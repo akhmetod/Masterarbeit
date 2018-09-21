@@ -344,6 +344,11 @@ c6 <- ggplot(data = dfSurvey, aes(x = tam_loc, fill = cuadrantes)) +
 
 ggsave(plot = c6, filename = "C6.pdf", width = 297, height = 210, units = "mm")
 
+
+
+ggplot(data = dfSurvey, aes(x = habl_ind, fill = cuadrantes)) +
+            geom_histogram(stat = 'count', position = 'fill')
+
 ```
 
 ```{r Behandlung fehlender Werte, warning = FALSE}
