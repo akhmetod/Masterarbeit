@@ -382,59 +382,36 @@ dfCensus <- na.omit(dfCensus)
 all(!is.na(dfSurvey))
 all(!is.na(dfCensus))
 
-# Skalierung der Daten?
-# dfSurvey$edad <- (dfSurvey$edad-min(dfSurvey$edad))/(max(dfSurvey$edad)-min(dfSurvey$edad))
-# dfSurvey$anos_escolaridad <- (dfSurvey$anos_escolaridad-min(dfSurvey$anos_escolaridad))/(max(dfSurvey$anos_escolaridad)-min(dfSurvey$anos_escolaridad))
-
 # Datensatz in Trainings- und Testdatendatz splitten
-# library(caTools)
-# set.seed(123)
-# split = sample.split(dfSurvey$cuadrantes, SplitRatio = 0.75)
-# trainingSurvey = subset(dfSurvey, split == TRUE)
-# testSurvey = subset(dfSurvey, split == FALSE)
-
-# k cross validation
-library(caret)
+library(caTools)
 set.seed(123)
-flds <- createFolds(c(1:7810), k = 10, list = TRUE, returnTrain = FALSE)
+split = sample.split(dfSurvey$cuadrantes, SplitRatio = 0.75)
+trainingSurvey = subset(dfSurvey, split == TRUE)
+testSurvey = subset(dfSurvey, split == FALSE)
 ```
 
 ```{r Multimomiale logistische Regression}
 # multlogReg modellieren (anhand Trainingsdatensatz)
 library(nnet)
+fullMLR <- multinom(cuadrantes ~ ., data = trainingSurvey)
+AICMLR <- step(fullMLR, direction = 'backward', trace = 0)
 
-accuracy_MLR <- data.frame(Fold = integer(), Accuracy = integer())
+fullMLR$vcoefnames[which(!(fullMLR$vcoefnames %in% AICMLR$vcoefnames))]
 
-describe(dfSurvey$cuadrantes)
+#y_hat <- ifelse(y_prob < 0.5, 0 , 1 )
 
-# k cross validation
-for (i in c(1:10)) {
-    
-    testID <- i
-    trainID <- c(1:10)[which(!(c(1:10) == i))]
-    testSurvey <- dfSurvey[flds[[testID]],]
-    trainingSurvey <- dfSurvey[c(unlist(flds[trainID])),]
-    
-    fullMLR <- multinom(cuadrantes ~ ., data = trainingSurvey)
-    AICMLR <- step(fullMLR, direction = 'backward', trace = 0)
+# Vorhersage (anhand Testdatensatz)
+y_pred_MLR <- predict(AICMLR, newdata = testSurvey[-1])
+#y_pred <- ifelse(y_pred < 0.5, 0 , 1 )
 
-    # fullMLR$vcoefnames[which(!(fullMLR$vcoefnames %in% AICMLR$vcoefnames))]
+# Making the Confusion Matrix
+confMat_MLR = table(true = testSurvey[,1], pred = y_pred_MLR)
 
-    #y_hat <- ifelse(y_prob < 0.5, 0 , 1 )
+# Genauigkeit
+#accuracy_MLR <- sum(diag(confMat_MLR))/sum(confMat_MLR)
+accuracy_MLR <-sum(diag(confMat_MLR))/sum(confMat_MLR)
 
-    # Vorhersage (anhand Testdatensatz)
-    y_pred_MLR <- predict(AICMLR, newdata = testSurvey[-1])
-    #y_pred <- ifelse(y_pred < 0.5, 0 , 1 )
-    
-    # Making the Confusion Matrix
-    confMat_MLR = table(true = testSurvey[,1], pred = y_pred_MLR)
-    
-    # Genauigkeit
-    #accuracy_MLR <- sum(diag(confMat_MLR))/sum(confMat_MLR)
-    accuracy_MLR[i,] <- c(i, sum(diag(confMat_MLR))/sum(confMat_MLR)) 
-}
-
-mean(accuracy_MLR$Accuracy)
+mean(accuracy_MLR)
 ```
 
 
