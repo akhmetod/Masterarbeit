@@ -13,11 +13,11 @@ knitr::opts_chunk$set(echo = TRUE)
 library(dplyr)
 library(ggplot2)
 library(xtable)
-options(xtable.floating = FALSE)
-options(xtable.timestamp = "")
 library(Hmisc)
 library(params)
 library(gridExtra)
+options(xtable.floating = FALSE)
+options(xtable.timestamp = "")
 ```
 
 ```{r Daten importieren, warning=FALSE}
@@ -29,13 +29,13 @@ dfSurvey <- read.csv('s.csv')[,-1] #Spalte 1 enthält nur Zeilennummer und wird 
 dfCensus <- dfCensus[,colnames(dfCensus) %in% colnames(dfSurvey)]
 dfSurvey <- data.frame("cuadrantes" = dfSurvey[,"cuadrantes"],
                        dfSurvey[,colnames(dfSurvey) %in% colnames(dfCensus)])
+```
 
+```{r Datenverständnis & -manipulation, warning = FALSE}
 # Deskriptive Statistik
 #str(dfSurvey)
 #str(dfCensus)
-```
 
-```{r Datenverständnis, warning = FALSE}
 # Anteil an fehlenden Werten bestimmen und in einer Tabelle zusammenfassen
 missingSurvey <- data.frame("Variable" = colnames(dfSurvey), "MissingSurvey" = t(data.frame(lapply(dfSurvey, function(x) round(100*sum(is.na(x))/length(x),1)))), row.names = NULL)
 missingCensus <- data.frame("Variable" = colnames(dfCensus), "MissingCensus" = t(data.frame(lapply(dfCensus, function(x) round(100*sum(is.na(x))/length(x),1)))), row.names = NULL)
@@ -58,12 +58,11 @@ dfSurvey <- dfSurvey[, !(colnames(dfSurvey) %in% missingDF[1:5,1])]
 dfCensus <- dfCensus[, -which(colnames(dfCensus) %in% c('ent'))]
 dfSurvey <- dfSurvey[, -which(colnames(dfSurvey) %in% c('ent'))]
 
-
-
 # Hilfsvariablen werden entfernt
 hilfsvariablen <- c('est_dis', 'factor', 'mun', 'upm')
 dfSurvey <- dfSurvey[ , !(names(dfSurvey)  %in% hilfsvariablen)]
 dfCensus <- dfCensus[ , !(names(dfCensus)  %in% hilfsvariablen)]
+rm(hilfsvariablen)
 
 # Transformation numerischer in nomialer Variablen. Ausgenommen sind edad und anos_escolaridad, da sie metrisch skaliert sind.
 dfSurvey$cuadrantes <- factor(dfSurvey$cuadrantes, levels = c(1,2,3,4,5), 
@@ -107,11 +106,10 @@ for (i in c(1,2)) {
 rm(df)
 rm(listDF)
 rm(i)
-
 ```
 
 ```{r Diagramme, warning = FALSE}
-# Grafiken
+# Verteilung Armutskategorie 
 c1 <- ggplot(data = dfSurvey, aes(x = cuadrantes, fill = cuadrantes)) +
             geom_bar(width = 0.75) +
             theme_light() +
@@ -130,12 +128,12 @@ c1 <- ggplot(data = dfSurvey, aes(x = cuadrantes, fill = cuadrantes)) +
                   #axis.title.x = element_text(size = 24, face = "bold"),
                   axis.title.x = element_blank(),
                   axis.title.y = element_text(size = 24, face = "bold"),
-                  axis.ticks.length=unit(.25, "cm"),
+                  axis.ticks.length = unit(.25, "cm"),
                   axis.ticks = element_line(colour = "black"))
 
 ggsave(plot = c1, filename = "C1.pdf", width = 297, height = 210, units = "mm")
 
-
+# Armutskategorie nach Geschlecht
 c2 <- ggplot(data = dfSurvey, aes(x = cuadrantes, fill = sexo)) +
             geom_bar(position = 'dodge', width = 0.75) +
             theme_light() +
@@ -186,6 +184,7 @@ ggsave(plot = c2, filename = "C2.pdf", width = 297, height = 210, units = "mm")
 # 
 # dfSurvey$eduLevel <- factor(dfSurvey$eduLevel, levels = c("Kein Schulbesuch", "Grundschule", "Mittelschule", "Oberschule","Studium"))
 
+# Armutskategorie nach Alter
 c3 <- ggplot(data = dfSurvey, aes(x = edad, fill = cuadrantes)) +
             geom_histogram(position = "fill", bins = 30) +
             geom_vline(xintercept = mean(dfSurvey$edad), linetype = "dashed", size = 1) +
@@ -225,6 +224,7 @@ c3 <- ggplot(data = dfSurvey, aes(x = edad, fill = cuadrantes)) +
 
 ggsave(plot = c3, filename = "C3.pdf", width = 297, height = 210, units = "mm")
 
+# Armutskategorie nach Bildungsjahre
 c4 <- ggplot(data = dfSurvey, aes(x = anos_escolaridad, fill = cuadrantes)) +
             geom_histogram(stat = 'count', position = 'fill') +
             theme_light() +
@@ -267,7 +267,7 @@ c4 <- ggplot(data = dfSurvey, aes(x = anos_escolaridad, fill = cuadrantes)) +
 
 ggsave(plot = c4, filename = "C4.pdf", width = 297, height = 210, units = "mm")
 
-
+# Armutskategorie nach Wohnort
 c5 <- ggplot(data = dfSurvey, aes(x = rururb, fill = cuadrantes)) +
             geom_histogram(stat = 'count', position = 'fill') +
             theme_light() +
@@ -306,6 +306,7 @@ c5 <- ggplot(data = dfSurvey, aes(x = rururb, fill = cuadrantes)) +
 
 ggsave(plot = c5, filename = "C5.pdf", width = 297, height = 210, units = "mm")
 
+# Armutskategorie nach Wohnortgröße
 c6 <- ggplot(data = dfSurvey, aes(x = tam_loc, fill = cuadrantes)) +
             geom_histogram(stat = 'count', position = 'fill') +
             theme_light() +
@@ -343,28 +344,25 @@ c6 <- ggplot(data = dfSurvey, aes(x = tam_loc, fill = cuadrantes)) +
             facet_grid(rururb ~ .)
 
 ggsave(plot = c6, filename = "C6.pdf", width = 297, height = 210, units = "mm")
-
-
-
-ggplot(data = dfSurvey, aes(x = habl_ind, fill = cuadrantes)) +
-            geom_histogram(stat = 'count', position = 'fill')
-
 ```
 
 ```{r Behandlung fehlender Werte, warning = FALSE}
-## Fehlende Werte asis_esc & habl_ind
+# Fehlende Werte asis_esc & habl_ind 
+## (dfSurvey: Modus je Armutskategorie; dfCensus: Modus)
 Mode2 <- function(x) {tab <- table(x); names(tab)[which.max(tab)]} #Quelle: https://stat.ethz.ch/pipermail/r-help/2010-March/231975.html 
 aggregate(dfSurvey[c('asis_esc', 'habl_ind')],
           by = list(dfSurvey$cuadrantes),
           FUN = Mode2)
+rm(Mode2)
+
 dfSurvey$asis_esc[which(is.na(dfSurvey$asis_esc))] <- 'Ja'
 dfSurvey$habl_ind[which(is.na(dfSurvey$habl_ind))] <- 'Nein'
 
 dfCensus$asis_esc[which(is.na(dfSurvey$asis_esc))] <- names(which.max(table(dfCensus['asis_esc'])))
 dfCensus$habl_ind[which(is.na(dfSurvey$habl_ind))] <- names(which.max(table(dfCensus['habl_ind'])))
-rm(Mode2)
 
-## Fehlende Werte anos_escolaridad
+# Fehlende Werte anos_escolaridad 
+# (dfSurvey: Median je Armutskategorie; dfCensus: Median)
 anosCuad <- aggregate(dfSurvey['anos_escolaridad'],
           by = list(dfSurvey$cuadrantes),
           FUN = median,
@@ -378,123 +376,183 @@ for (i in c('extrem','gemildert','anfällig aufgrund Einkommen', 'anfällig aufg
 }
 
 rm(i)
+rm(anosCuad)
 
 dfCensus$anos_escolaridad[which(is.na(dfSurvey$anos_escolaridad))] <- median(dfCensus$anos_escolaridad, na.rm = TRUE)
 
+# Restliche NAs werden aus dfCensus entfernt
 dfCensus <- na.omit(dfCensus)
 
 # Kontrollieren, ob alle fehlenden Werte schon bereinigt wurden
 all(!is.na(dfSurvey))
 all(!is.na(dfCensus))
+```
+
+```{r Vorbereitung für Modellierung}
 
 # Datensatz in Trainings- und Testdatendatz splitten
 library(caTools)
 set.seed(123)
 split = sample.split(dfSurvey$cuadrantes, SplitRatio = 0.75)
 trainingSurvey = subset(dfSurvey, split == TRUE)
-testSurvey = subset(dfSurvey, split == FALSE)
+validSurvey = subset(dfSurvey, split == FALSE)
+rm(split)
+
+# Vorbereitung k-fache Kreuzvalidierung
+library(caret)
+set.seed(123)
+folds <- createFolds(dfSurvey$cuadrantes, k = 10, list = TRUE, returnTrain = FALSE)
+
 ```
 
-```{r Multimomiale logistische Regression}
-# multlogReg modellieren (anhand Trainingsdatensatz)
+
+```{r Modellierung Multimomiale logistische Regression}
+# MLR modellieren (anhand Trainingsdatensatz)
 library(nnet)
-fullMLR <- multinom(cuadrantes ~ ., data = trainingSurvey)
-AICMLR <- step(fullMLR, direction = 'backward', trace = 0)
 
-fullMLR$vcoefnames[which(!(fullMLR$vcoefnames %in% AICMLR$vcoefnames))]
+# MLR Modellierung
+MLR_FULL <- multinom(cuadrantes ~ ., data = trainingSurvey)
 
-#y_hat <- ifelse(y_prob < 0.5, 0 , 1 )
+# Rückwärtsselektion nach AIC
+MLR_AIC <- step(MLR_FULL, direction = 'backward', trace = 0)
+    
+# Nach AIC zu entfernende Variablen
+MLR_rmVar <- paste(MLR_FULL$vcoefnames[which(!(MLR_FULL$vcoefnames %in% MLR_AIC$vcoefnames))], collapse = " ")
 
-# Vorhersage (anhand Testdatensatz)
-y_pred_MLR <- predict(AICMLR, newdata = testSurvey[-1])
-#y_pred <- ifelse(y_pred < 0.5, 0 , 1 )
+# MLR Vorhersage
+MLR_yPred <- predict(MLR_AIC, newdata = validSurvey[-1])
 
-# Making the Confusion Matrix
-confMat_MLR = table(true = testSurvey[,1], pred = y_pred_MLR)
+# MLR Confusion Matrix
+MLR_confMat = table(true = validSurvey[,1], pred = MLR_yPred)
 
-# Genauigkeit
-#accuracy_MLR <- sum(diag(confMat_MLR))/sum(confMat_MLR)
-accuracy_MLR <-sum(diag(confMat_MLR))/sum(confMat_MLR)
+# MLR Genauigkeit
+MLR_Accuracy <- sum(diag(MLR_confMat))/sum(MLR_confMat)
 
-mean(accuracy_MLR)
+
+
+# MLR k-fache Kreuzvalidierung
+MLR_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
+MLR_rmVar <- data.frame(Fold = integer(), rmVar = integer())
+MLR_confMat <- list()
+
+for (i in c(1:10)) {
+    
+    validID <- i
+    trainID <- c(1:10)[which(!(c(1:10) == i))]
+    
+    validSurvey <- dfSurvey[folds[[validID]],]
+    trainingSurvey <- dfSurvey[c(unlist(folds[trainID])),]
+    
+    MLR_FULL <- multinom(cuadrantes ~ ., data = trainingSurvey)
+    MLR_AIC <- step(MLR_FULL, direction = 'backward', trace = 0)
+    
+    MLR_rmVar[i,] <- c(i, paste(MLR_FULL$vcoefnames[which(!(MLR_FULL$vcoefnames %in% MLR_AIC$vcoefnames))], collapse = " "))
+    
+    # MLR k-fache Kreuzvalidierung Vorhersage
+    MLR_yPred <- predict(MLR_AIC, newdata = validSurvey[-1])
+    
+    # MLR k-fache Kreuzvalidierung Confusion Matrix
+    MLR_confMat[[i]] = table(true = validSurvey[,1], pred = MLR_yPred)
+    
+    # MLR k-fache Kreuzvalidierung Genauigkeit
+    MLR_Accuracy[i,] <- c(i, sum(diag(MLR_confMat[[i]]))/sum(MLR_confMat[[i]])) 
+    
+}
+
+mean(MLR_Accuracy$Accuracy)
+
+rm(i)
 ```
 
 
-```{r SVM}
-# Fitting SVM to the Training set
-#install.packages("e1071")
+```{r Modellierung SVM}
+# install.packages("e1071")
 library(e1071)
 
-#tune <- tune.svm(cuadrantes ~ ., data = trainingSurvey, gamma =seq(.01, 0.1), cost = seq(0.1,1))
-tune <- tune.svm(cuadrantes ~ ., data = trainingSurvey, 
-                 gamma = 10^(c(-2:2)), 
-                 cost = 10^(c(-2:2)))
+start <- Sys.time()
+
+# Parameteroptimierung
+tuneSVM <- tune.svm(cuadrantes ~ ., data = trainingSurvey, 
+                 gamma = 10^(c(-3:3)), 
+                 cost = 10^(c(-3:3)))
+
+summary(tuneSVM)
 
 accuracy_SVM <- data.frame(Fold = integer(), Accuracy = integer())
 
-# k cross validation
-for (i in c(1:10)) {
+# SVM Trainieren
+classifierSVM <- svm(cuadrantes ~ .,
+              data = trainingSurvey,
+              type = "C-classification",
+              kernel = "radial"
+              , gamma = tuneSVM$best.parameters$gamma, 
+              cost = tuneSVM$best.parameters$cost)
+
+# SVM Vorhersage
+y_pred_SVM = predict(classifierSVM, newdata = validSurvey[-1])
+
+# SVM Confusion Matrix
+SVM_confMatrix = table(true = validSurvey[,1], pred = y_pred_SVM)
+
+# SVM Genauigkeit
+SVM_Accuracy <- sum(diag(SVM_confMatrix))/sum(SVM_confMatrix)
+
+end <- Sys.time()
+```
+
+```{r Simulation Szenario 1}
+# SVM Parameteroptimierung anhand einem Paar Sample - Population
+dfTrain <- popList[[1]]$smp
+dfValid <- popList[[1]]$pop
+
+tune <- tune.svm(y ~ X_1 + X_2, data = dfTrain,
+             gamma = 10^(c(-3:3)),
+             cost = 10^(c(-3:3)))
+
+# MLR und SVM für jedes Paar Sample - Population
+MLR_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
+SVM_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
+
+for (i in c(1:simRuns)) {
+    dfTrain <- popList[[i]]$smp # Sample als Trainingsdaten
+    dfValid <- popList[[i]]$pop # Population als Validierungsdaten
     
-    testID <- i
-    trainID <- c(1:10)[which(!(c(1:10) == i))]
-    testSurvey <- dfSurvey[flds[[testID]],]
-    trainingSurvey <- dfSurvey[c(unlist(flds[trainID])),]
+    # MLR
+    MLR_FULL <- multinom(y ~ X_1 + X_2, data = dfTrain)
+    MLR_AIC <- step(MLR_FULL, direction = 'backward', trace = 0)
+        
+    # MLR Vorhersage
+    MLR_yPred <- predict(MLR_AIC, newdata = dfValid[-1])
     
-    classifierSVM <- svm(cuadrantes ~ .,
-                  data = trainingSurvey,
+    # MLR Confusion Matrix
+    MLR_confMat = table(true = dfValid[,1], pred = MLR_yPred)
+    
+    # MLR Genauigkeit
+    MLR_Accuracy[i,] <- c(i, sum(diag(MLR_confMat))/sum(MLR_confMat))
+    
+    # SVM
+    classifierSVM <- svm(y ~ .,
+                  data = dfTrain,
                   type = "C-classification",
                   kernel = "radial"
-                  , gamma = tune$best.parameters$gamma, 
-                  cost = tune$best.parameters$cost)
-
-    # Predicting the Test set results
-    y_pred_SVM = predict(classifierSVM, newdata = testSurvey[-1])
+                  , gamma = 0.1, 
+                  cost = 10)
     
-    # Making the Confusion Matrix
-    confMat_SVM = table(true = testSurvey[,1], pred = y_pred_SVM)
+    # SVM Vorhersage
+    y_pred_SVM = predict(classifierSVM, newdata = dfValid[-1])
     
-    # Genauigkeit
-    accuracy_SVM[i,] <- c(i,sum(diag(confMat_SVM))/sum(confMat_SVM))
-
+    # SVM Confusion Matrix
+    confMat_SVM = table(true = dfValid[,1], pred = y_pred_SVM)
+    
+    # SVM Genauigkeit
+    SVM_Accuracy[i,] <- c(i,sum(diag(confMat_SVM))/sum(confMat_SVM))
+   
 }
 
-mean(accuracy_SVM$Accuracy)
+boxplot(MLR_Accuracy$Accuracy, SVM_Accuracy$Accuracy)
 ```
 
 
 
 
-```{r eval=FALSE, include=FALSE}
-
-# Visualising the Training set results
-#install.packages("ElemStatLearn")
-library(ElemStatLearn)
-set = trainingSurvey
-X1 = seq(min(set[, 1]) - 1, max(set[, 1]) + 1, by = 0.01)
-X2 = seq(min(set[, 2]) - 1, max(set[, 2]) + 1, by = 0.01)
-grid_set = expand.grid(X1, X2)
-colnames(grid_set) = c('Age', 'EstimatedSalary')
-y_grid = predict(classifier, newdata = grid_set)
-plot(set[, -3],
-     main = 'Classifier (Training set)',
-     xlab = 'Age', ylab = 'Estimated Salary',
-     xlim = range(X1), ylim = range(X2))
-contour(X1, X2, matrix(as.numeric(y_grid), length(X1), length(X2)), add = TRUE)
-points(grid_set, pch = '.', col = ifelse(y_grid == 1, 'springgreen3', 'tomato'))
-points(set, pch = 21, bg = ifelse(set[, 3] == 1, 'green4', 'red3'))
-
-# Visualising the Test set results
-set = test_set
-X1 = seq(min(set[, 1]) - 1, max(set[, 1]) + 1, by = 0.01)
-X2 = seq(min(set[, 2]) - 1, max(set[, 2]) + 1, by = 0.01)
-grid_set = expand.grid(X1, X2)
-colnames(grid_set) = c('Age', 'EstimatedSalary')
-y_grid = predict(classifier, newdata = grid_set)
-plot(set[, -3], main = 'Classifier (Test set)',
-     xlab = 'Age', ylab = 'Estimated Salary',
-     xlim = range(X1), ylim = range(X2))
-contour(X1, X2, matrix(as.numeric(y_grid), length(X1), length(X2)), add = TRUE)
-points(grid_set, pch = '.', col = ifelse(y_grid == 1, 'springgreen3', 'tomato'))
-points(set, pch = 21, bg = ifelse(set[, 3] == 1, 'green4', 'red3'))  
-```
 
