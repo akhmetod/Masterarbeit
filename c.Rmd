@@ -473,8 +473,8 @@ start <- Sys.time()
 
 # Parameteroptimierung
 tuneSVM <- tune.svm(cuadrantes ~ ., data = trainingSurvey, 
-                 gamma = 10^(c(-3:3)), 
-                 cost = 10^(c(-3:3)))
+                 gamma = 10^(c(-6:6)), 
+                 cost = 10^(c(-6:6)))
 
 summary(tuneSVM)
 
@@ -497,7 +497,7 @@ SVM_confMatrix = table(true = validSurvey[,1], pred = y_pred_SVM)
 # SVM Genauigkeit
 SVM_Accuracy <- sum(diag(SVM_confMatrix))/sum(SVM_confMatrix)
 
-end <- Sys.time()
+dauer <- Sys.time() - start
 ```
 
 ```{r Simulation Szenario 1}
