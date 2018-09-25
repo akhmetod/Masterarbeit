@@ -18,6 +18,7 @@ library(params)
 library(gridExtra)
 options(xtable.floating = FALSE)
 options(xtable.timestamp = "")
+#options(scipen = 999)
 ```
 
 ```{r Daten importieren, warning=FALSE}
@@ -473,20 +474,70 @@ start <- Sys.time()
 
 # Parameteroptimierung
 tuneSVM <- tune.svm(cuadrantes ~ ., data = trainingSurvey, 
-                 gamma = 10^(c(-6:6)), 
-                 cost = 10^(c(-6:6)))
+                 gamma = 10^(c(-6:-3)), 
+                 cost = 10^(c(7)))
 
-summary(tuneSVM)
+#tuneResult <- summary(tuneSVM)
+#tuneResult <- tuneResult$performances[,1:3]
 
-accuracy_SVM <- data.frame(Fold = integer(), Accuracy = integer())
+#write.csv(tuneResult, "tuneResult.csv")
+
+tuneResult <- read.csv("tuneResult.csv")[,2:4]
+tuneResult$error <- 1 - tuneResult$error
+names(tuneResult)[3] <- "Genauigkeit"
+
+ggplot(tuneResult, aes(x = factor(gamma), y= factor(cost))) + geom_tile(aes(fill = Genauigkeit), color = "white") +
+    geom_text(aes(label=round(Genauigkeit,3))) +
+    scale_fill_gradient(low = "skyblue", high = "steelblue") +
+    labs(x = "Gamma", y = "Cost")
+
+SVM_Accuracy <- data.frame(Gamma = integer(), Cost = integer(), Accuracy = integer())
 
 # SVM Trainieren
+
+i = 0
+
+for (g in 10^c(-3:3)) {
+    for (c in 10^c(-3:3)) {
+        
+        i = i + 1
+        
+        classifierSVM <- svm(cuadrantes ~ .,
+              data = trainingSurvey,
+              type = "C-classification",
+              kernel = "radial"
+              , gamma = g, 
+              cost = c)
+        
+        # SVM Vorhersage
+        y_pred_SVM = predict(classifierSVM, newdata = validSurvey[-1])
+        
+        # SVM Confusion Matrix
+        SVM_confMatrix = table(true = validSurvey[,1], pred = y_pred_SVM)
+        
+        # SVM Genauigkeit
+        SVM_Accuracy[i,] <- c(g, c, sum(diag(SVM_confMatrix))/sum(SVM_confMatrix))
+    }
+}
+    
+
+ggplot(SVM_Accuracy, aes(x = factor(Gamma), y= factor(Cost))) + geom_tile(aes(fill = Accuracy), color = "white") +
+    geom_text(aes(label=round(Accuracy,3))) +
+    scale_fill_gradient(low = "skyblue", high = "steelblue") +
+    labs(x = "Gamma", y = "Cost")
+
+
+
+
+
+
+
 classifierSVM <- svm(cuadrantes ~ .,
               data = trainingSurvey,
               type = "C-classification",
               kernel = "radial"
-              , gamma = tuneSVM$best.parameters$gamma, 
-              cost = tuneSVM$best.parameters$cost)
+              , gamma = 10^-2, 
+              cost = 10^6)
 
 # SVM Vorhersage
 y_pred_SVM = predict(classifierSVM, newdata = validSurvey[-1])
