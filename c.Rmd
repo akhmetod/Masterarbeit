@@ -30,6 +30,7 @@ dfSurvey <- read.csv('s.csv')[,-1] #Spalte 1 enthält nur Zeilennummer und wird 
 dfCensus <- dfCensus[,colnames(dfCensus) %in% colnames(dfSurvey)]
 dfSurvey <- data.frame("cuadrantes" = dfSurvey[,"cuadrantes"],
                        dfSurvey[,colnames(dfSurvey) %in% colnames(dfCensus)])
+
 ```
 
 ```{r Datenverständnis & -manipulation, warning = FALSE}
@@ -78,6 +79,7 @@ names(dfSurvey)[7] <- 'anos_escolaridad' #Umbenennung für richtige Zeichencodie
 names(dfCensus)[6] <- 'anos_escolaridad' #Umbenennung für richtige Zeichencodierung
 
 listDF <- c("dfSurvey", "dfCensus")
+
 
 for (i in c(1,2)) {
     
@@ -478,57 +480,54 @@ rm(trainID)
 library(e1071)
 
 # Parameteroptimierung SVM (Liner, Polynomial, RBF, Sigmoid)
-linSVM_Tune <- tune.svm(cuadrantes ~ ., data = trainSurvey)
-polySVM_Tune <- tune.svm(cuadrantes ~ ., data = trainSurvey)
+linSVM_Tune <- tune.svm(cuadrantes ~ ., data = trainSurvey, kernel = 'linear', cost = 10^c(-3:3))
+#polySVM_Tune <- tune.svm(cuadrantes ~ ., data = trainSurvey)
 RBFSVM_Tune <- tune.svm(cuadrantes ~ ., data = trainSurvey, 
                  gamma = 10^(c(-2:3)), 
                  cost = 10^(c(-2:7)))
-sigSVM_Tune <- tune.svm(cuadrantes ~ ., data = trainSurvey)
+#sigSVM_Tune <- tune.svm(cuadrantes ~ ., data = trainSurvey)
 
 # Plot tune-Ergebnisse
-linSVM_tunePlot 
+linSVM_tunePlot <- ggplot(tuneResult, aes(x = factor(gamma), y = factor(cost))) + geom_tile(aes(fill = Genauigkeit), color = "white") +
+    geom_text(aes(label = round(Genauigkeit,3))) +
+    scale_fill_gradient(low = "skyblue", high = "steelblue") +
+    labs(x = "Gamma", y = "Cost")
 
-polySVM_tunePlot
+#polySVM_tunePlot
 
 RBFSVM_tunePlot <- ggplot(tuneResult, aes(x = factor(gamma), y = factor(cost))) + geom_tile(aes(fill = Genauigkeit), color = "white") +
     geom_text(aes(label = round(Genauigkeit,3))) +
     scale_fill_gradient(low = "skyblue", high = "steelblue") +
     labs(x = "Gamma", y = "Cost")
 
-sigSVM_tunePlot
+#sigSVM_tunePlot
 
 # Trainiere SVM (Linear, Polynomial, RBF, Sigmoid)
 
 linSVM_Modell
 
-polySVM_Modell
+#polySVM_Modell
 
 RBFSVM_Modell <- svm(cuadrantes ~ .,
               data = trainSurvey,
               type = "C-classification",
               kernel = "radial", 
-              gamma = 10^-2, 
-              cost = 10^6)
+              gamma = 1, 
+              cost = 1)
 
-sigSVM_Modell
+#sigSVM_Modell
 
 # Vorhersage SVM (Linear, Polynomial, RBF, Sigmoid)
 linSVM_yPred = predict(classifierSVM, newdata = validSurvey[-1])
-polySVM_yPred
 RBFSVM_yPred
-sigSVM_yPred
 
 # SVM Confusion Matrix (Linear, Polynomial, RBF, Sigmoid)
 confMat_linSVM
-confMat_polySVM
 confMat_RBFSVM = table(true = validSurvey[,1], pred = RBFSVM_yPred)
-confMat_sigSVM
 
 # SVM Genauigkeit (Linear, Polynomial, RBF, Sigmoid)
 accuracy_linSVM 
-accuracy_polySVM
 accuracy_RBFSVM <- sum(diag(SVM_ConfMat))/sum(SVM_ConfMat)
-accuracy_sigSVM
 ```
 
 ```{r Simulation Szenario 1}
@@ -536,14 +535,17 @@ accuracy_sigSVM
 dfTrain <- popList[[1]]$smp
 dfValid <- popList[[1]]$pop
 
-S1_tuneSVM_RBF <- tune.svm(y ~ X_1 + X_2, data = dfTrain,
+S1_tuneLinSVM <- tune.svm(y ~ X_1 + X_2, data = dfTrain, kernel = 'linear',
              gamma = 10^(c(-3:3)),
              cost = 10^(c(-3:3)))
 
-
+S1_tuneRBFSVM <- tune.svm(y ~ X_1 + X_2, data = dfTrain,
+             gamma = 10^(c(-3:3)),
+             cost = 10^(c(-3:3)))
 
 # MLR und SVM für jedes Paar Sample - Population
-S1_accuracy_MLR <- data.frame(Fold = integer(), Accuracy = integer())
+S1_Accuracy_MLR <- data.frame(Fold = integer(), Accuracy = integer())
+S1_Accuracy_linSVM <- data.frame(Fold = integer(), Accuracy = integer())
 S1_Accuracy_RBFSVM <- data.frame(Fold = integer(), Accuracy = integer())
 
 for (i in c(1:simRuns)) {
@@ -600,13 +602,18 @@ dfTrain$X_6 <- as.factor(popList[[1]]$smp$X_6)
 dfValid$X_5 <- as.factor(popList[[1]]$pop$X_5)
 dfValid$X_6 <- as.factor(popList[[1]]$pop$X_6)
 
-tune <- tune.svm(y ~ X_1 + X_2 + X_3 + X_4 + X_5 + X_6, data = dfTrain,
+S2_tuneLinSVM <- tune.svm(y ~ X_1 + X_2 + X_3 + X_4 + X_5 + X_6, data = dfTrain, kernel = 'linear',
+             gamma = 10^(c(-3:3)),
+             cost = 10^(c(-3:3)))
+
+S2_tuneRBFSVM <- tune.svm(y ~ X_1 + X_2 + X_3 + X_4 + X_5 + X_6, data = dfTrain,
              gamma = 10^(c(-3:3)),
              cost = 10^(c(-3:3)))
 
 # MLR und SVM für jedes Paar Sample - Population
-accuracy_MLR <- data.frame(Fold = integer(), Accuracy = integer())
-SVM_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
+S2_Accuracy_MLR <- data.frame(Fold = integer(), Accuracy = integer())
+S2_Accuracy_linSVM <- data.frame(Fold = integer(), Accuracy = integer())
+S2_Accuracy_RBFSVM <- data.frame(Fold = integer(), Accuracy = integer())
 
 for (i in c(1:simRuns)) {
     dfTrain <- popList[[i]]$smp # Sample als Trainingsdaten
