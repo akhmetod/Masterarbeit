@@ -345,6 +345,8 @@ c6 <- ggplot(data = dfSurvey, aes(x = tam_loc, fill = cuadrantes)) +
             facet_grid(rururb ~ .)
 
 ggsave(plot = c6, filename = "C6.pdf", width = 297, height = 210, units = "mm")
+
+rm("c1","c2","c3","c4","c5","c6")
 ```
 
 ```{r Behandlung fehlender Werte, warning = FALSE}
@@ -395,7 +397,7 @@ all(!is.na(dfCensus))
 library(caTools)
 set.seed(123)
 split = sample.split(dfSurvey$cuadrantes, SplitRatio = 0.75)
-trainingSurvey = subset(dfSurvey, split == TRUE)
+trainSurvey = subset(dfSurvey, split == TRUE)
 validSurvey = subset(dfSurvey, split == FALSE)
 rm(split)
 
@@ -411,58 +413,63 @@ folds <- createFolds(dfSurvey$cuadrantes, k = 10, list = TRUE, returnTrain = FAL
 # MLR modellieren (anhand Trainingsdatensatz)
 library(nnet)
 
-# MLR Modellierung
-MLR_FULL <- multinom(cuadrantes ~ ., data = trainingSurvey)
-
-# Rückwärtsselektion nach AIC
-MLR_AIC <- step(MLR_FULL, direction = 'backward', trace = 0)
-    
-# Nach AIC zu entfernende Variablen
-MLR_rmVar <- paste(MLR_FULL$vcoefnames[which(!(MLR_FULL$vcoefnames %in% MLR_AIC$vcoefnames))], collapse = " ")
-
-# MLR Vorhersage
-MLR_yPred <- predict(MLR_AIC, newdata = validSurvey[-1])
-
-# MLR Confusion Matrix
-MLR_confMat = table(true = validSurvey[,1], pred = MLR_yPred)
-
-# MLR Genauigkeit
-MLR_Accuracy <- sum(diag(MLR_confMat))/sum(MLR_confMat)
-
+# # MLR Modellierung
+# MLR_FULL <- multinom(cuadrantes ~ ., data = trainSurvey)
+# 
+# # Rückwärtsselektion nach AIC
+# MLR_AIC <- step(MLR_FULL, direction = 'backward', trace = 0)
+#     
+# # Nach AIC zu entfernende Variablen
+# rmVar_MLR <- paste(MLR_FULL$vcoefnames[which(!(MLR_FULL$vcoefnames %in% MLR_AIC$vcoefnames))], collapse = " ")
+# 
+# # MLR Vorhersage
+# MLR_yPred <- predict(MLR_AIC, newdata = validSurvey[-1])
+# 
+# # MLR Confusion Matrix
+# confMat_MLR = table(true = validSurvey[,1], pred = MLR_yPred)
+# 
+# # MLR Genauigkeit
+# accuracy_MLR <- sum(diag(confMat_MLR))/sum(confMat_MLR)
 
 
 # MLR k-fache Kreuzvalidierung
-MLR_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
-MLR_rmVar <- data.frame(Fold = integer(), rmVar = integer())
-MLR_confMat <- list()
+accuracy_MLR <- data.frame(Fold = integer(), Accuracy = integer())
+rmVar_MLR <- data.frame(Fold = integer(), rmVar = integer())
+confMat_MLR <- list()
 
 for (i in c(1:10)) {
     
+    # k-1 Folds für Training und 1 für Valid
     validID <- i
     trainID <- c(1:10)[which(!(c(1:10) == i))]
+    validDF <- dfSurvey[folds[[validID]],]
+    trainingDF <- dfSurvey[c(unlist(folds[trainID])),]
     
-    validSurvey <- dfSurvey[folds[[validID]],]
-    trainingSurvey <- dfSurvey[c(unlist(folds[trainID])),]
-    
-    MLR_FULL <- multinom(cuadrantes ~ ., data = trainingSurvey)
+    # Trainiere k-1 Folds
+    MLR_FULL <- multinom(cuadrantes ~ ., data = trainingDF)
     MLR_AIC <- step(MLR_FULL, direction = 'backward', trace = 0)
     
-    MLR_rmVar[i,] <- c(i, paste(MLR_FULL$vcoefnames[which(!(MLR_FULL$vcoefnames %in% MLR_AIC$vcoefnames))], collapse = " "))
+    # Zu entfernende erklärende Variablen
+    rmVar_MLR[i,] <- c(i, paste(MLR_FULL$vcoefnames[which(!(MLR_FULL$vcoefnames %in% MLR_AIC$vcoefnames))], collapse = " "))
     
     # MLR k-fache Kreuzvalidierung Vorhersage
-    MLR_yPred <- predict(MLR_AIC, newdata = validSurvey[-1])
+    MLR_yPred <- predict(MLR_AIC, newdata = validDF[-1])
     
     # MLR k-fache Kreuzvalidierung Confusion Matrix
-    MLR_confMat[[i]] = table(true = validSurvey[,1], pred = MLR_yPred)
+    confMat_MLR[[i]] = table(true = validDF[,1], pred = MLR_yPred)
     
     # MLR k-fache Kreuzvalidierung Genauigkeit
-    MLR_Accuracy[i,] <- c(i, sum(diag(MLR_confMat[[i]]))/sum(MLR_confMat[[i]])) 
+    accuracy_MLR[i,] <- c(i, sum(diag(confMat_MLR[[i]]))/sum(confMat_MLR[[i]])) 
     
 }
 
-mean(MLR_Accuracy$Accuracy)
+# Evaluation MLR k-fache Kreuzvalidierung 
+mean(accuracy_MLR$Accuracy) # Durchschnittliche Genauigkeit der k Iterationen
+rmVar_MLR # Zu entfernende erklärende der k Iterationen
 
 rm(i)
+rm(validID)
+rm(trainID)
 ```
 
 
@@ -470,85 +477,58 @@ rm(i)
 # install.packages("e1071")
 library(e1071)
 
-start <- Sys.time()
+# Parameteroptimierung SVM (Liner, Polynomial, RBF, Sigmoid)
+linSVM_Tune <- tune.svm(cuadrantes ~ ., data = trainSurvey)
+polySVM_Tune <- tune.svm(cuadrantes ~ ., data = trainSurvey)
+RBFSVM_Tune <- tune.svm(cuadrantes ~ ., data = trainSurvey, 
+                 gamma = 10^(c(-2:3)), 
+                 cost = 10^(c(-2:7)))
+sigSVM_Tune <- tune.svm(cuadrantes ~ ., data = trainSurvey)
 
-# Parameteroptimierung
-tuneSVM <- tune.svm(cuadrantes ~ ., data = trainingSurvey, 
-                 gamma = 10^(c(-6:-3)), 
-                 cost = 10^(c(7)))
+# Plot tune-Ergebnisse
+linSVM_tunePlot 
 
-#tuneResult <- summary(tuneSVM)
-#tuneResult <- tuneResult$performances[,1:3]
+polySVM_tunePlot
 
-#write.csv(tuneResult, "tuneResult.csv")
-
-tuneResult <- read.csv("tuneResult.csv")[,2:4]
-tuneResult$error <- 1 - tuneResult$error
-names(tuneResult)[3] <- "Genauigkeit"
-
-ggplot(tuneResult, aes(x = factor(gamma), y= factor(cost))) + geom_tile(aes(fill = Genauigkeit), color = "white") +
-    geom_text(aes(label=round(Genauigkeit,3))) +
+RBFSVM_tunePlot <- ggplot(tuneResult, aes(x = factor(gamma), y = factor(cost))) + geom_tile(aes(fill = Genauigkeit), color = "white") +
+    geom_text(aes(label = round(Genauigkeit,3))) +
     scale_fill_gradient(low = "skyblue", high = "steelblue") +
     labs(x = "Gamma", y = "Cost")
 
-SVM_Accuracy <- data.frame(Gamma = integer(), Cost = integer(), Accuracy = integer())
+sigSVM_tunePlot
 
-# SVM Trainieren
+# Trainiere SVM (Linear, Polynomial, RBF, Sigmoid)
 
-i = 0
+linSVM_Modell
 
-for (g in 10^c(-3:3)) {
-    for (c in 10^c(-3:3)) {
-        
-        i = i + 1
-        
-        classifierSVM <- svm(cuadrantes ~ .,
-              data = trainingSurvey,
+polySVM_Modell
+
+RBFSVM_Modell <- svm(cuadrantes ~ .,
+              data = trainSurvey,
               type = "C-classification",
-              kernel = "radial"
-              , gamma = g, 
-              cost = c)
-        
-        # SVM Vorhersage
-        y_pred_SVM = predict(classifierSVM, newdata = validSurvey[-1])
-        
-        # SVM Confusion Matrix
-        SVM_confMatrix = table(true = validSurvey[,1], pred = y_pred_SVM)
-        
-        # SVM Genauigkeit
-        SVM_Accuracy[i,] <- c(g, c, sum(diag(SVM_confMatrix))/sum(SVM_confMatrix))
-    }
-}
-    
-
-ggplot(SVM_Accuracy, aes(x = factor(Gamma), y= factor(Cost))) + geom_tile(aes(fill = Accuracy), color = "white") +
-    geom_text(aes(label=round(Accuracy,3))) +
-    scale_fill_gradient(low = "skyblue", high = "steelblue") +
-    labs(x = "Gamma", y = "Cost")
-
-
-
-
-
-
-
-classifierSVM <- svm(cuadrantes ~ .,
-              data = trainingSurvey,
-              type = "C-classification",
-              kernel = "radial"
-              , gamma = 10^-2, 
+              kernel = "radial", 
+              gamma = 10^-2, 
               cost = 10^6)
 
-# SVM Vorhersage
-y_pred_SVM = predict(classifierSVM, newdata = validSurvey[-1])
+sigSVM_Modell
 
-# SVM Confusion Matrix
-SVM_confMatrix = table(true = validSurvey[,1], pred = y_pred_SVM)
+# Vorhersage SVM (Linear, Polynomial, RBF, Sigmoid)
+linSVM_yPred = predict(classifierSVM, newdata = validSurvey[-1])
+polySVM_yPred
+RBFSVM_yPred
+sigSVM_yPred
 
-# SVM Genauigkeit
-SVM_Accuracy <- sum(diag(SVM_confMatrix))/sum(SVM_confMatrix)
+# SVM Confusion Matrix (Linear, Polynomial, RBF, Sigmoid)
+confMat_linSVM
+confMat_polySVM
+confMat_RBFSVM = table(true = validSurvey[,1], pred = RBFSVM_yPred)
+confMat_sigSVM
 
-dauer <- Sys.time() - start
+# SVM Genauigkeit (Linear, Polynomial, RBF, Sigmoid)
+accuracy_linSVM 
+accuracy_polySVM
+accuracy_RBFSVM <- sum(diag(SVM_ConfMat))/sum(SVM_ConfMat)
+accuracy_sigSVM
 ```
 
 ```{r Simulation Szenario 1}
@@ -556,13 +536,15 @@ dauer <- Sys.time() - start
 dfTrain <- popList[[1]]$smp
 dfValid <- popList[[1]]$pop
 
-tune <- tune.svm(y ~ X_1 + X_2, data = dfTrain,
+S1_tuneSVM_RBF <- tune.svm(y ~ X_1 + X_2, data = dfTrain,
              gamma = 10^(c(-3:3)),
              cost = 10^(c(-3:3)))
 
+
+
 # MLR und SVM für jedes Paar Sample - Population
-MLR_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
-SVM_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
+S1_accuracy_MLR <- data.frame(Fold = integer(), Accuracy = integer())
+S1_Accuracy_RBFSVM <- data.frame(Fold = integer(), Accuracy = integer())
 
 for (i in c(1:simRuns)) {
     dfTrain <- popList[[i]]$smp # Sample als Trainingsdaten
@@ -576,10 +558,10 @@ for (i in c(1:simRuns)) {
     MLR_yPred <- predict(MLR_AIC, newdata = dfValid[-1])
     
     # MLR Confusion Matrix
-    MLR_confMat = table(true = dfValid[,1], pred = MLR_yPred)
+    confMat_MLR = table(true = dfValid[,1], pred = MLR_yPred)
     
     # MLR Genauigkeit
-    MLR_Accuracy[i,] <- c(i, sum(diag(MLR_confMat))/sum(MLR_confMat))
+    accuracy_MLR[i,] <- c(i, sum(diag(confMat_MLR))/sum(confMat_MLR))
     
     # SVM
     classifierSVM <- svm(y ~ .,
@@ -600,7 +582,77 @@ for (i in c(1:simRuns)) {
    
 }
 
-boxplot(MLR_Accuracy$Accuracy, SVM_Accuracy$Accuracy)
+#warning()
+
+boxplot(accuracy_MLR$Accuracy, SVM_Accuracy$Accuracy)
+```
+
+
+```{r Szenario 2}
+load("/Users/XuanSon/Desktop/complexSimData.Rdata")
+
+# SVM Parameteroptimierung anhand einem Paar Sample - Population
+dfTrain <- popList[[1]]$smp
+dfValid <- popList[[1]]$pop
+
+dfTrain$X_5 <- as.factor(popList[[1]]$smp$X_5)
+dfTrain$X_6 <- as.factor(popList[[1]]$smp$X_6)
+dfValid$X_5 <- as.factor(popList[[1]]$pop$X_5)
+dfValid$X_6 <- as.factor(popList[[1]]$pop$X_6)
+
+tune <- tune.svm(y ~ X_1 + X_2 + X_3 + X_4 + X_5 + X_6, data = dfTrain,
+             gamma = 10^(c(-3:3)),
+             cost = 10^(c(-3:3)))
+
+# MLR und SVM für jedes Paar Sample - Population
+accuracy_MLR <- data.frame(Fold = integer(), Accuracy = integer())
+SVM_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
+
+for (i in c(1:simRuns)) {
+    dfTrain <- popList[[i]]$smp # Sample als Trainingsdaten
+    dfValid <- popList[[i]]$pop # Population als Validierungsdaten
+    
+    dfTrain$X_5 <- as.factor(popList[[1]]$smp$X_5)
+    dfTrain$X_6 <- as.factor(popList[[1]]$smp$X_6)
+    dfValid$X_5 <- as.factor(popList[[1]]$pop$X_5)
+    dfValid$X_6 <- as.factor(popList[[1]]$pop$X_6)
+    
+    # MLR
+    MLR_FULL <- multinom(y ~ ., data = dfTrain)
+    MLR_AIC <- step(MLR_FULL, direction = 'backward', trace = 0)
+        
+    # MLR Vorhersage
+    MLR_yPred <- predict(MLR_AIC, newdata = dfValid[-1])
+    
+    # MLR Confusion Matrix
+    confMat_MLR = table(true = dfValid[,1], pred = MLR_yPred)
+    
+    # MLR Genauigkeit
+    accuracy_MLR[i,] <- c(i, sum(diag(confMat_MLR))/sum(confMat_MLR))
+    
+    # SVM
+    classifierSVM <- svm(y ~ .,
+                  data = dfTrain,
+                  type = "C-classification",
+                  kernel = "radial"
+                  , gamma = 0.1, 
+                  cost = 10)
+    
+    # SVM Vorhersage
+    y_pred_SVM = predict(classifierSVM, newdata = dfValid[-1])
+    
+    # SVM Confusion Matrix
+    confMat_SVM = table(true = dfValid[,1], pred = y_pred_SVM)
+    
+    # SVM Genauigkeit
+    SVM_Accuracy[i,] <- c(i,sum(diag(confMat_SVM))/sum(confMat_SVM))
+   
+}
+
+#warning()
+
+boxplot(accuracy_MLR$Accuracy, SVM_Accuracy$Accuracy)
+
 ```
 
 
