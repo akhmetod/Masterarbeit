@@ -1,7 +1,7 @@
 ---
 title: "Code zur Masterarbeit"
 author: "Xuan Son Le (4669361)"
-date: "10/10/2018"
+date: "Abgabedatum: 10/10/2018"
 output: pdf_document: keep_tex: true
 editor_options: 
   chunk_output_type: console
@@ -22,68 +22,67 @@ options(xtable.timestamp = "")
 ```
 
 ```{r Daten importieren, warning=FALSE}
-# CSV-Datei einlesen
-dfCensus <- read.csv('c.csv')[,-1] #Spalte 1 enthält nur Zeilennummer und wird entfernt
-dfSurvey <- read.csv('s.csv')[,-1] #Spalte 1 enthält nur Zeilennummer und wird entfernt
+# CSV-Dateien einlesen
+censusDF <- read.csv('c.csv')[,-1] #Spalte 1 enthält nur Zeilennummer und wird entfernt
+surveyDF <- read.csv('s.csv')[,-1] #Spalte 1 enthält nur Zeilennummer und wird entfernt
 
 # Nur gemeinsame erklärende Variablen werden behalten
-dfCensus <- dfCensus[,colnames(dfCensus) %in% colnames(dfSurvey)]
-dfSurvey <- data.frame("cuadrantes" = dfSurvey[,"cuadrantes"],
-                       dfSurvey[,colnames(dfSurvey) %in% colnames(dfCensus)])
+censusDF <- censusDF[,colnames(censusDF) %in% colnames(surveyDF)]
+surveyDF <- data.frame("cuadrantes" = surveyDF[,"cuadrantes"],
+                       surveyDF[,colnames(surveyDF) %in% colnames(censusDF)])
 
 ```
 
 ```{r Datenverständnis & -manipulation, warning = FALSE}
 # Deskriptive Statistik
-#str(dfSurvey)
-#str(dfCensus)
+#describe(surveyDF)
+#describe(censusDF)
 
 # Anteil an fehlenden Werten bestimmen und in einer Tabelle zusammenfassen
-missingSurvey <- data.frame("Variable" = colnames(dfSurvey), "MissingSurvey" = t(data.frame(lapply(dfSurvey, function(x) round(100*sum(is.na(x))/length(x),1)))), row.names = NULL)
-missingCensus <- data.frame("Variable" = colnames(dfCensus), "MissingCensus" = t(data.frame(lapply(dfCensus, function(x) round(100*sum(is.na(x))/length(x),1)))), row.names = NULL)
-missingDF <- left_join(missingSurvey, missingCensus, by = 'Variable')
+missingSurvey <- data.frame("Variable" = colnames(surveyDF), "MissingSurvey" = t(data.frame(lapply(surveyDF, function(x) round(100*sum(is.na(x))/length(x),1)))), row.names = NULL)
+missingCensus <- data.frame("Variable" = colnames(censusDF), "MissingCensus" = t(data.frame(lapply(censusDF, function(x) round(100*sum(is.na(x))/length(x),1)))), row.names = NULL)
+missingRmVar <- left_join(missingSurvey, missingCensus, by = 'Variable')
 missingAll <- left_join(missingSurvey, missingCensus, by = 'Variable')
-missingDF <- missingDF[which(missingDF[,2] > 10 & missingDF[,3] > 10),]
-row.names(missingDF) <- c(1:nrow(missingDF))
+missingRmVar <- missingRmVar[which(missingRmVar[,2] > 10 & missingRmVar[,3] > 10),]
+row.names(missingRmVar) <- c(1:nrow(missingRmVar))
 
 rm(missingSurvey)
 rm(missingCensus)
 
 # Latex-Tabelle-Formatierung 
-#xtable(missingDF) 
+#xtable(missingRmVar) 
 
-# Variablen mit zu vielen fehlenden Werten werden entfernt
-dfCensus <- dfCensus[, !(colnames(dfCensus) %in% missingDF[1:5,1])]
-dfSurvey <- dfSurvey[, !(colnames(dfSurvey) %in% missingDF[1:5,1])]
+# Variablen mit zu vielen fehlenden Werten in beiden Datensätzen werden entfernt
+censusDF <- censusDF[, !(colnames(censusDF) %in% missingRmVar[1:5,1])]
+surveyDF <- surveyDF[, !(colnames(surveyDF) %in% missingRmVar[1:5,1])]
 
 # Variable ent wird entfernt, da nur ein Wert für alle Beobachtungen
-dfCensus <- dfCensus[, -which(colnames(dfCensus) %in% c('ent'))]
-dfSurvey <- dfSurvey[, -which(colnames(dfSurvey) %in% c('ent'))]
+censusDF <- censusDF[, -which(colnames(censusDF) %in% c('ent'))]
+surveyDF <- surveyDF[, -which(colnames(surveyDF) %in% c('ent'))]
 
 # Hilfsvariablen werden entfernt
 hilfsvariablen <- c('est_dis', 'factor', 'mun', 'upm')
-dfSurvey <- dfSurvey[ , !(names(dfSurvey)  %in% hilfsvariablen)]
-dfCensus <- dfCensus[ , !(names(dfCensus)  %in% hilfsvariablen)]
+surveyDF <- surveyDF[ , !(names(surveyDF)  %in% hilfsvariablen)]
+censusDF <- censusDF[ , !(names(censusDF)  %in% hilfsvariablen)]
 rm(hilfsvariablen)
 
-# Transformation numerischer in nomialer Variablen. Ausgenommen sind edad und anos_escolaridad, da sie metrisch skaliert sind.
-dfSurvey$cuadrantes <- factor(dfSurvey$cuadrantes, levels = c(1,2,3,4,5), 
+# Transformation numerischer in kategorialer Variablen. Ausgenommen sind edad und anos_escolaridad, da sie metrisch skaliert sind.
+surveyDF$cuadrantes <- factor(surveyDF$cuadrantes, levels = c(1,2,3,4,5), 
                                  labels = c('extrem','gemildert',
                                             'anfällig aufgrund Einkommen', 
                                             'anfällig aufgrund Sozialmangel', 'keine'))
 
-dfSurvey$asis_esc <- dfSurvey$asis_esc - 1 #Damit gleiche Werte mit Census Datei
-dfCensus$sexo <- dfCensus$sexo - 1 #Damit gleiche Werte mit Survey Datei
+surveyDF$asis_esc <- surveyDF$asis_esc - 1 #Damit gleiche Werte mit Census Datei
+censusDF$sexo <- censusDF$sexo - 1 #Damit gleiche Werte mit Survey Datei
 
-names(dfSurvey)[7] <- 'anos_escolaridad' #Umbenennung für richtige Zeichencodierung
-names(dfCensus)[6] <- 'anos_escolaridad' #Umbenennung für richtige Zeichencodierung
+names(surveyDF)[7] <- 'anos_escolaridad' #Umbenennung für richtige Zeichencodierung
+names(censusDF)[6] <- 'anos_escolaridad' #Umbenennung für richtige Zeichencodierung
 
-listDF <- c("dfSurvey", "dfCensus")
-
+listDF <- c("surveyDF", "censusDF")
 
 for (i in c(1,2)) {
     
-    df <- list(dfSurvey, dfCensus)[[i]]
+    df <- list(surveyDF, censusDF)[[i]]
     
     df$parentesco <- factor(df$parentesco)
     df$sexo <- factor(df$sexo, levels = c(0,1), labels = c('Weiblich','Männlich'))
@@ -113,7 +112,7 @@ rm(i)
 
 ```{r Diagramme, warning = FALSE}
 # Verteilung Armutskategorie 
-c1 <- ggplot(data = dfSurvey, aes(x = cuadrantes, fill = cuadrantes)) +
+c1 <- ggplot(data = surveyDF, aes(x = cuadrantes, fill = cuadrantes)) +
             geom_bar(width = 0.75) +
             theme_light() +
             labs(y = "Anzahl der Beobachtung",
@@ -137,7 +136,7 @@ c1 <- ggplot(data = dfSurvey, aes(x = cuadrantes, fill = cuadrantes)) +
 ggsave(plot = c1, filename = "C1.pdf", width = 297, height = 210, units = "mm")
 
 # Armutskategorie nach Geschlecht
-c2 <- ggplot(data = dfSurvey, aes(x = cuadrantes, fill = sexo)) +
+c2 <- ggplot(data = surveyDF, aes(x = cuadrantes, fill = sexo)) +
             geom_bar(position = 'dodge', width = 0.75) +
             theme_light() +
             labs(#title = "C.2 Armutskategorie nach Geschlecht",
@@ -168,7 +167,7 @@ c2 <- ggplot(data = dfSurvey, aes(x = cuadrantes, fill = sexo)) +
 ggsave(plot = c2, filename = "C2.pdf", width = 297, height = 210, units = "mm")
 
 
-# dfSurvey <- dfSurvey %>% mutate(ageGroup = case_when(
+# surveyDF <- surveyDF %>% mutate(ageGroup = case_when(
 #         edad < 6 ~ "< 6",
 #         edad < 18 ~ "10-18",
 #         edad < 65 ~ "18-65",
@@ -176,7 +175,7 @@ ggsave(plot = c2, filename = "C2.pdf", width = 297, height = 210, units = "mm")
 #     )
 # )
 
-# dfSurvey <- dfSurvey %>% mutate(eduLevel = case_when(
+# surveyDF <- surveyDF %>% mutate(eduLevel = case_when(
 #         anos_escolaridad == 0 ~ "Kein Schulbesuch",
 #         anos_escolaridad <= 6 ~ "Grundschule",
 #         anos_escolaridad <= 9 ~ "Mittelschule",
@@ -185,12 +184,12 @@ ggsave(plot = c2, filename = "C2.pdf", width = 297, height = 210, units = "mm")
 #     )
 # )
 # 
-# dfSurvey$eduLevel <- factor(dfSurvey$eduLevel, levels = c("Kein Schulbesuch", "Grundschule", "Mittelschule", "Oberschule","Studium"))
+# surveyDF$eduLevel <- factor(surveyDF$eduLevel, levels = c("Kein Schulbesuch", "Grundschule", "Mittelschule", "Oberschule","Studium"))
 
 # Armutskategorie nach Alter
-c3 <- ggplot(data = dfSurvey, aes(x = edad, fill = cuadrantes)) +
+c3 <- ggplot(data = surveyDF, aes(x = edad, fill = cuadrantes)) +
             geom_histogram(position = "fill", bins = 30) +
-            geom_vline(xintercept = mean(dfSurvey$edad), linetype = "dashed", size = 1) +
+            geom_vline(xintercept = mean(surveyDF$edad), linetype = "dashed", size = 1) +
             theme_light() +
             labs(#title = "C.3 Armutskategorie nach Alter",
                  y = "Anteil der Beobachtungen",
@@ -228,7 +227,7 @@ c3 <- ggplot(data = dfSurvey, aes(x = edad, fill = cuadrantes)) +
 ggsave(plot = c3, filename = "C3.pdf", width = 297, height = 210, units = "mm")
 
 # Armutskategorie nach Bildungsjahre
-c4 <- ggplot(data = dfSurvey, aes(x = anos_escolaridad, fill = cuadrantes)) +
+c4 <- ggplot(data = surveyDF, aes(x = anos_escolaridad, fill = cuadrantes)) +
             geom_histogram(stat = 'count', position = 'fill') +
             theme_light() +
             labs(#title = "C.4 Armutskategorie nach Bildungsdauer",
@@ -236,8 +235,8 @@ c4 <- ggplot(data = dfSurvey, aes(x = anos_escolaridad, fill = cuadrantes)) +
                  x = "Bildungsjahre",
                  fill = "Armutskategorie") + 
             #scale_x_discrete(limits = c('Kein Schulbesuch','Grundschule', 'Mittelschule', 'Oberschule', 'Studium')) +
-            scale_x_continuous(breaks = seq(min(dfSurvey$anos_escolaridad, na.rm = TRUE), 
-                                            max(dfSurvey$anos_escolaridad, na.rm = TRUE), by = 1)) +
+            scale_x_continuous(breaks = seq(min(surveyDF$anos_escolaridad, na.rm = TRUE), 
+                                            max(surveyDF$anos_escolaridad, na.rm = TRUE), by = 1)) +
             scale_fill_discrete("Armutskategorie",
                                 breaks = c("1", "2", "3", "4", "5"), 
                                 labels = c("extreme Armut\t", "gemilderte Armut\t", 
@@ -271,7 +270,7 @@ c4 <- ggplot(data = dfSurvey, aes(x = anos_escolaridad, fill = cuadrantes)) +
 ggsave(plot = c4, filename = "C4.pdf", width = 297, height = 210, units = "mm")
 
 # Armutskategorie nach Wohnort
-c5 <- ggplot(data = dfSurvey, aes(x = rururb, fill = cuadrantes)) +
+c5 <- ggplot(data = surveyDF, aes(x = rururb, fill = cuadrantes)) +
             geom_histogram(stat = 'count', position = 'fill') +
             theme_light() +
             labs(#title = "C.5 Armutskategorie nach Wohnort",
@@ -310,7 +309,7 @@ c5 <- ggplot(data = dfSurvey, aes(x = rururb, fill = cuadrantes)) +
 ggsave(plot = c5, filename = "C5.pdf", width = 297, height = 210, units = "mm")
 
 # Armutskategorie nach Wohnortgröße
-c6 <- ggplot(data = dfSurvey, aes(x = tam_loc, fill = cuadrantes)) +
+c6 <- ggplot(data = surveyDF, aes(x = tam_loc, fill = cuadrantes)) +
             geom_histogram(stat = 'count', position = 'fill') +
             theme_light() +
             labs(#title = "C.6 Armutskategorie nach Einwohnerzahl des Wohnorts",
@@ -353,44 +352,44 @@ rm("c1","c2","c3","c4","c5","c6")
 
 ```{r Behandlung fehlender Werte, warning = FALSE}
 # Fehlende Werte asis_esc & habl_ind 
-## (dfSurvey: Modus je Armutskategorie; dfCensus: Modus)
+## (surveyDF: Modus je Armutskategorie; censusDF: Modus)
 Mode2 <- function(x) {tab <- table(x); names(tab)[which.max(tab)]} #Quelle: https://stat.ethz.ch/pipermail/r-help/2010-March/231975.html 
-aggregate(dfSurvey[c('asis_esc', 'habl_ind')],
-          by = list(dfSurvey$cuadrantes),
+aggregate(surveyDF[c('asis_esc', 'habl_ind')],
+          by = list(surveyDF$cuadrantes),
           FUN = Mode2)
 rm(Mode2)
 
-dfSurvey$asis_esc[which(is.na(dfSurvey$asis_esc))] <- 'Ja'
-dfSurvey$habl_ind[which(is.na(dfSurvey$habl_ind))] <- 'Nein'
+surveyDF$asis_esc[which(is.na(surveyDF$asis_esc))] <- 'Ja'
+surveyDF$habl_ind[which(is.na(surveyDF$habl_ind))] <- 'Nein'
 
-dfCensus$asis_esc[which(is.na(dfSurvey$asis_esc))] <- names(which.max(table(dfCensus['asis_esc'])))
-dfCensus$habl_ind[which(is.na(dfSurvey$habl_ind))] <- names(which.max(table(dfCensus['habl_ind'])))
+censusDF$asis_esc[which(is.na(surveyDF$asis_esc))] <- names(which.max(table(censusDF['asis_esc'])))
+censusDF$habl_ind[which(is.na(surveyDF$habl_ind))] <- names(which.max(table(censusDF['habl_ind'])))
 
 # Fehlende Werte anos_escolaridad 
-# (dfSurvey: Median je Armutskategorie; dfCensus: Median)
-anosCuad <- aggregate(dfSurvey['anos_escolaridad'],
-          by = list(dfSurvey$cuadrantes),
+# (surveyDF: Median je Armutskategorie; censusDF: Median)
+anosCuad <- aggregate(surveyDF['anos_escolaridad'],
+          by = list(surveyDF$cuadrantes),
           FUN = median,
           na.rm = TRUE,
           na.action = na.pass)
 for (i in c('extrem','gemildert','anfällig aufgrund Einkommen', 'anfällig aufgrund Sozialmangel', 'keine')) {
     
-    dfSurvey$anos_escolaridad[which(is.na(dfSurvey$anos_escolaridad) &
-                           dfSurvey$cuadrantes == i)] <- anosCuad[which(anosCuad == i),2]
+    surveyDF$anos_escolaridad[which(is.na(surveyDF$anos_escolaridad) &
+                           surveyDF$cuadrantes == i)] <- anosCuad[which(anosCuad == i),2]
     
 }
 
 rm(i)
 rm(anosCuad)
 
-dfCensus$anos_escolaridad[which(is.na(dfSurvey$anos_escolaridad))] <- median(dfCensus$anos_escolaridad, na.rm = TRUE)
+censusDF$anos_escolaridad[which(is.na(surveyDF$anos_escolaridad))] <- median(censusDF$anos_escolaridad, na.rm = TRUE)
 
-# Restliche NAs werden aus dfCensus entfernt
-dfCensus <- na.omit(dfCensus)
+# Restliche NAs werden aus censusDF entfernt
+censusDF <- na.omit(censusDF)
 
 # Kontrollieren, ob alle fehlenden Werte schon bereinigt wurden
-all(!is.na(dfSurvey))
-all(!is.na(dfCensus))
+all(!is.na(surveyDF))
+all(!is.na(censusDF))
 ```
 
 ```{r Vorbereitung für Modellierung}
@@ -398,80 +397,57 @@ all(!is.na(dfCensus))
 # Datensatz in Trainings- und Testdatendatz splitten
 library(caTools)
 set.seed(123)
-split = sample.split(dfSurvey$cuadrantes, SplitRatio = 0.75)
-trainSurvey = subset(dfSurvey, split == TRUE)
-validSurvey = subset(dfSurvey, split == FALSE)
+split = sample.split(surveyDF$cuadrantes, SplitRatio = 0.75)
+surveyTrainDF = subset(surveyDF, split == TRUE)
+surveyValidDF = subset(surveyDF, split == FALSE)
 rm(split)
 
 # Vorbereitung k-fache Kreuzvalidierung
 library(caret)
 set.seed(123)
-folds <- createFolds(dfSurvey$cuadrantes, k = 10, list = TRUE, returnTrain = FALSE)
+folds <- createFolds(surveyDF$cuadrantes, k = 10, list = TRUE, returnTrain = FALSE)
 
 ```
 
-
 ```{r Modellierung Multimomiale logistische Regression}
-# MLR modellieren (anhand Trainingsdatensatz)
 library(nnet)
 
-# # MLR Modellierung
-# MLR_FULL <- multinom(cuadrantes ~ ., data = trainSurvey)
-# 
-# # Rückwärtsselektion nach AIC
-# MLR_AIC <- step(MLR_FULL, direction = 'backward', trace = 0)
-#     
-# # Nach AIC zu entfernende Variablen
-# rmVar_MLR <- paste(MLR_FULL$vcoefnames[which(!(MLR_FULL$vcoefnames %in% MLR_AIC$vcoefnames))], collapse = " ")
-# 
-# # MLR Vorhersage
-# MLR_yPred <- predict(MLR_AIC, newdata = validSurvey[-1])
-# 
-# # MLR Confusion Matrix
-# confMat_MLR = table(true = validSurvey[,1], pred = MLR_yPred)
-# 
-# # MLR Genauigkeit
-# accuracy_MLR <- sum(diag(confMat_MLR))/sum(confMat_MLR)
-
-
 # MLR k-fache Kreuzvalidierung
-accuracy_MLR <- data.frame(Fold = integer(), Accuracy = integer())
-rmVar_MLR <- data.frame(Fold = integer(), rmVar = integer())
-confMat_MLR <- list()
+MLR_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
+MLR_RmVar <- data.frame(Fold = integer(), rmVar = integer())
+MLR_ConfMat <- list()
 
 for (i in c(1:10)) {
     
     # k-1 Folds für Training und 1 für Valid
     validID <- i
     trainID <- c(1:10)[which(!(c(1:10) == i))]
-    validDF <- dfSurvey[folds[[validID]],]
-    trainingDF <- dfSurvey[c(unlist(folds[trainID])),]
+    validDF <- surveyDF[folds[[validID]],]
+    trainDF <- surveyDF[c(unlist(folds[trainID])),]
     
     # Trainiere k-1 Folds
-    MLR_FULL <- multinom(cuadrantes ~ ., data = trainingDF)
+    MLR_FULL <- multinom(cuadrantes ~ ., data = trainDF)
     MLR_AIC <- step(MLR_FULL, direction = 'backward', trace = 0)
     
     # Zu entfernende erklärende Variablen
-    rmVar_MLR[i,] <- c(i, paste(MLR_FULL$vcoefnames[which(!(MLR_FULL$vcoefnames %in% MLR_AIC$vcoefnames))], collapse = " "))
+    MLR_RmVar[i,] <- c(i, paste(MLR_FULL$vcoefnames[which(!(MLR_FULL$vcoefnames %in% MLR_AIC$vcoefnames))], collapse = " "))
     
     # MLR k-fache Kreuzvalidierung Vorhersage
     MLR_yPred <- predict(MLR_AIC, newdata = validDF[-1])
     
     # MLR k-fache Kreuzvalidierung Confusion Matrix
-    confMat_MLR[[i]] = table(true = validDF[,1], pred = MLR_yPred)
+    MLR_ConfMat[[i]] = table(true = validDF[,1], pred = MLR_yPred)
     
     # MLR k-fache Kreuzvalidierung Genauigkeit
-    accuracy_MLR[i,] <- c(i, sum(diag(confMat_MLR[[i]]))/sum(confMat_MLR[[i]])) 
+    MLR_Accuracy[i,] <- c(i, sum(diag(MLR_ConfMat[[i]]))/sum(MLR_ConfMat[[i]])) 
     
 }
 
 # Evaluation MLR k-fache Kreuzvalidierung 
-mean(accuracy_MLR$Accuracy) # Durchschnittliche Genauigkeit der k Iterationen
-rmVar_MLR # Zu entfernende erklärende der k Iterationen
+mean(MLR_Accuracy$Accuracy) # Durchschnittliche Genauigkeit der k Iterationen
+MLR_RmVar # zu entfernende erklärende der k Iterationen
 
-rm(i)
-rm(validID)
-rm(trainID)
+rm("i", "validID", "validDF", "trainID", "trainDF", "MLR_yPred")
 ```
 
 
@@ -479,13 +455,14 @@ rm(trainID)
 # install.packages("e1071")
 library(e1071)
 
-# Parameteroptimierung SVM (Liner, Polynomial, RBF, Sigmoid)
-linSVM_Tune <- tune.svm(cuadrantes ~ ., data = trainSurvey, kernel = 'linear', cost = 10^c(-3:3))
-#polySVM_Tune <- tune.svm(cuadrantes ~ ., data = trainSurvey)
-RBFSVM_Tune <- tune.svm(cuadrantes ~ ., data = trainSurvey, 
-                 gamma = 10^(c(-2:3)), 
-                 cost = 10^(c(-2:7)))
-#sigSVM_Tune <- tune.svm(cuadrantes ~ ., data = trainSurvey)
+# Parameteroptimierung SVM (Liner, RBF)
+linSVM_Tune <- tune.svm(cuadrantes ~ ., data = surveyTrainDF, kernel = 'linear', cost = 10^c(-3:3))
+linSVM_Tune_Result <- linSVM_Tune$performances[1,2]
+linSVM_Tune_Result$
+
+RBFSVM_Tune <- tune.svm(cuadrantes ~ ., data = surveyTrainDF, 
+                 gamma = 10^(c(-3:3)), 
+                 cost = 10^(c(-3:3)))
 
 # Plot tune-Ergebnisse
 linSVM_tunePlot <- ggplot(tuneResult, aes(x = factor(gamma), y = factor(cost))) + geom_tile(aes(fill = Genauigkeit), color = "white") +
@@ -493,100 +470,121 @@ linSVM_tunePlot <- ggplot(tuneResult, aes(x = factor(gamma), y = factor(cost))) 
     scale_fill_gradient(low = "skyblue", high = "steelblue") +
     labs(x = "Gamma", y = "Cost")
 
-#polySVM_tunePlot
-
 RBFSVM_tunePlot <- ggplot(tuneResult, aes(x = factor(gamma), y = factor(cost))) + geom_tile(aes(fill = Genauigkeit), color = "white") +
     geom_text(aes(label = round(Genauigkeit,3))) +
     scale_fill_gradient(low = "skyblue", high = "steelblue") +
     labs(x = "Gamma", y = "Cost")
 
-#sigSVM_tunePlot
-
-# Trainiere SVM (Linear, Polynomial, RBF, Sigmoid)
-
-linSVM_Modell
-
-#polySVM_Modell
+# Trainiere SVM (Linear, RBF)
+linSVM_Modell <- svm(cuadrantes ~ .,
+              data = surveyTrainDF,
+              type = "C-classification",
+              kernel = "linear", 
+              cost = linSVM_Tune$best.parameters$cost)
 
 RBFSVM_Modell <- svm(cuadrantes ~ .,
-              data = trainSurvey,
+              data = surveyTrainDF,
               type = "C-classification",
               kernel = "radial", 
               gamma = 1, 
               cost = 1)
 
-#sigSVM_Modell
-
-# Vorhersage SVM (Linear, Polynomial, RBF, Sigmoid)
-linSVM_yPred = predict(classifierSVM, newdata = validSurvey[-1])
+# Vorhersage SVM (Linear, RBF)
+linSVM_yPred = predict(linSVM_Modell, newdata = surveyValidDF[-1])
 RBFSVM_yPred
 
-# SVM Confusion Matrix (Linear, Polynomial, RBF, Sigmoid)
-confMat_linSVM
-confMat_RBFSVM = table(true = validSurvey[,1], pred = RBFSVM_yPred)
+# SVM Confusion Matrix (Linear, RBF)
+linSVM_ConfMat <- table(true = surveyValidDF[,1], pred = linSVM_yPred)
+RBFSVM_ConfMat = table(true = surveyValidDF[,1], pred = RBFSVM_yPred)
 
 # SVM Genauigkeit (Linear, Polynomial, RBF, Sigmoid)
-accuracy_linSVM 
-accuracy_RBFSVM <- sum(diag(SVM_ConfMat))/sum(SVM_ConfMat)
+linSVM_Accuracy <- sum(diag(linSVM_ConfMat))/sum(linSVM_ConfMat)
+RBFSVM_Accuracy <- sum(diag(SVM_ConfMat))/sum(SVM_ConfMat)
 ```
 
 ```{r Simulation Szenario 1}
 # SVM Parameteroptimierung anhand einem Paar Sample - Population
-dfTrain <- popList[[1]]$smp
-dfValid <- popList[[1]]$pop
+trainDF <- popList[[1]]$smp
+validDF <- popList[[1]]$pop
 
-S1_tuneLinSVM <- tune.svm(y ~ X_1 + X_2, data = dfTrain, kernel = 'linear',
+S1_linSVM_Tune <- tune.svm(y ~ X_1 + X_2, data = trainDF, kernel = 'linear',
              gamma = 10^(c(-3:3)),
              cost = 10^(c(-3:3)))
 
-S1_tuneRBFSVM <- tune.svm(y ~ X_1 + X_2, data = dfTrain,
+S1_RBFSVM_Tune <- tune.svm(y ~ X_1 + X_2, data = trainDF,
              gamma = 10^(c(-3:3)),
              cost = 10^(c(-3:3)))
 
 # MLR und SVM für jedes Paar Sample - Population
-S1_Accuracy_MLR <- data.frame(Fold = integer(), Accuracy = integer())
-S1_Accuracy_linSVM <- data.frame(Fold = integer(), Accuracy = integer())
-S1_Accuracy_RBFSVM <- data.frame(Fold = integer(), Accuracy = integer())
+S1_MLR_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
+S1_linSVM_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
+S1_RBFSVM_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
+
+S1_MLR_RmVar <- data.frame(Fold = integer(), rmVar = integer())
+S1_linSVM_RmVar <- data.frame(Fold = integer(), rmVar = integer())
+S1_RBFSVM_RmVar <- data.frame(Fold = integer(), rmVar = integer())
+
+S1_MLR_ConfMat <- list()
+S1_linSVM_ConfMat <- list()
+S1_RBFSVM_ConfMat <- list()
 
 for (i in c(1:simRuns)) {
-    dfTrain <- popList[[i]]$smp # Sample als Trainingsdaten
-    dfValid <- popList[[i]]$pop # Population als Validierungsdaten
+    # Trainings- und Validierungsdaten
+    trainDF <- popList[[i]]$smp # Sample als Trainingsdaten
+    validDF <- popList[[i]]$pop # Population als Validierungsdaten
     
-    # MLR
-    MLR_FULL <- multinom(y ~ X_1 + X_2, data = dfTrain)
-    MLR_AIC <- step(MLR_FULL, direction = 'backward', trace = 0)
+    # MLR Trainieren
+    S1_MLR_FULL <- multinom(y ~ X_1 + X_2, data = trainDF)
+    S1_MLR_AIC <- step(MLR_FULL, direction = 'backward', trace = 0)
         
-    # MLR Vorhersage
-    MLR_yPred <- predict(MLR_AIC, newdata = dfValid[-1])
+    # MLR Vorhersagen
+    S1_MLR_yPred <- predict(MLR_AIC, newdata = validDF[-1])
     
     # MLR Confusion Matrix
-    confMat_MLR = table(true = dfValid[,1], pred = MLR_yPred)
+    S1_MLR_ConfMat = table(true = validDF[,1], pred = MLR_yPred)
     
     # MLR Genauigkeit
-    accuracy_MLR[i,] <- c(i, sum(diag(confMat_MLR))/sum(confMat_MLR))
+    S1_MLR_Accuracy[i,] <- c(i, sum(diag(MLR_ConfMat))/sum(MLR_ConfMat))
     
-    # SVM
+    # linSVM Trainieren
     classifierSVM <- svm(y ~ .,
-                  data = dfTrain,
+                  data = trainDF,
                   type = "C-classification",
                   kernel = "radial"
                   , gamma = 0.1, 
                   cost = 10)
     
-    # SVM Vorhersage
-    y_pred_SVM = predict(classifierSVM, newdata = dfValid[-1])
+    # linSVM Vorhersage
+    y_pred_SVM = predict(classifierSVM, newdata = validDF[-1])
     
-    # SVM Confusion Matrix
-    confMat_SVM = table(true = dfValid[,1], pred = y_pred_SVM)
+    # linSVM Confusion Matrix
+    confMat_SVM = table(true = validDF[,1], pred = y_pred_SVM)
     
-    # SVM Genauigkeit
+    # linSVM Genauigkeit
+    SVM_Accuracy[i,] <- c(i,sum(diag(confMat_SVM))/sum(confMat_SVM))
+    
+    # RBFSVM Trainieren
+    classifierSVM <- svm(y ~ .,
+                  data = trainDF,
+                  type = "C-classification",
+                  kernel = "radial"
+                  , gamma = 0.1, 
+                  cost = 10)
+    
+    # RBFSVM Vorhersage
+    y_pred_SVM = predict(classifierSVM, newdata = validDF[-1])
+    
+    # RBFSVM Confusion Matrix
+    confMat_SVM = table(true = validDF[,1], pred = y_pred_SVM)
+    
+    # RBFSVM Genauigkeit
     SVM_Accuracy[i,] <- c(i,sum(diag(confMat_SVM))/sum(confMat_SVM))
    
 }
 
 #warning()
 
-boxplot(accuracy_MLR$Accuracy, SVM_Accuracy$Accuracy)
+boxplot(MLR_Accuracy$Accuracy, SVM_Accuracy$Accuracy)
 ```
 
 
@@ -594,62 +592,62 @@ boxplot(accuracy_MLR$Accuracy, SVM_Accuracy$Accuracy)
 load("/Users/XuanSon/Desktop/complexSimData.Rdata")
 
 # SVM Parameteroptimierung anhand einem Paar Sample - Population
-dfTrain <- popList[[1]]$smp
-dfValid <- popList[[1]]$pop
+trainDF <- popList[[1]]$smp
+validDF <- popList[[1]]$pop
 
-dfTrain$X_5 <- as.factor(popList[[1]]$smp$X_5)
-dfTrain$X_6 <- as.factor(popList[[1]]$smp$X_6)
-dfValid$X_5 <- as.factor(popList[[1]]$pop$X_5)
-dfValid$X_6 <- as.factor(popList[[1]]$pop$X_6)
+trainDF$X_5 <- as.factor(popList[[1]]$smp$X_5)
+trainDF$X_6 <- as.factor(popList[[1]]$smp$X_6)
+validDF$X_5 <- as.factor(popList[[1]]$pop$X_5)
+validDF$X_6 <- as.factor(popList[[1]]$pop$X_6)
 
-S2_tuneLinSVM <- tune.svm(y ~ X_1 + X_2 + X_3 + X_4 + X_5 + X_6, data = dfTrain, kernel = 'linear',
+S2_tuneLinSVM <- tune.svm(y ~ X_1 + X_2 + X_3 + X_4 + X_5 + X_6, data = trainDF, kernel = 'linear',
              gamma = 10^(c(-3:3)),
              cost = 10^(c(-3:3)))
 
-S2_tuneRBFSVM <- tune.svm(y ~ X_1 + X_2 + X_3 + X_4 + X_5 + X_6, data = dfTrain,
+S2_tuneRBFSVM <- tune.svm(y ~ X_1 + X_2 + X_3 + X_4 + X_5 + X_6, data = trainDF,
              gamma = 10^(c(-3:3)),
              cost = 10^(c(-3:3)))
 
 # MLR und SVM für jedes Paar Sample - Population
-S2_Accuracy_MLR <- data.frame(Fold = integer(), Accuracy = integer())
+S2_MLR_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
 S2_Accuracy_linSVM <- data.frame(Fold = integer(), Accuracy = integer())
 S2_Accuracy_RBFSVM <- data.frame(Fold = integer(), Accuracy = integer())
 
 for (i in c(1:simRuns)) {
-    dfTrain <- popList[[i]]$smp # Sample als Trainingsdaten
-    dfValid <- popList[[i]]$pop # Population als Validierungsdaten
+    trainDF <- popList[[i]]$smp # Sample als Trainingsdaten
+    validDF <- popList[[i]]$pop # Population als Validierungsdaten
     
-    dfTrain$X_5 <- as.factor(popList[[1]]$smp$X_5)
-    dfTrain$X_6 <- as.factor(popList[[1]]$smp$X_6)
-    dfValid$X_5 <- as.factor(popList[[1]]$pop$X_5)
-    dfValid$X_6 <- as.factor(popList[[1]]$pop$X_6)
+    trainDF$X_5 <- as.factor(popList[[1]]$smp$X_5)
+    trainDF$X_6 <- as.factor(popList[[1]]$smp$X_6)
+    validDF$X_5 <- as.factor(popList[[1]]$pop$X_5)
+    validDF$X_6 <- as.factor(popList[[1]]$pop$X_6)
     
     # MLR
-    MLR_FULL <- multinom(y ~ ., data = dfTrain)
+    MLR_FULL <- multinom(y ~ ., data = trainDF)
     MLR_AIC <- step(MLR_FULL, direction = 'backward', trace = 0)
         
     # MLR Vorhersage
-    MLR_yPred <- predict(MLR_AIC, newdata = dfValid[-1])
+    MLR_yPred <- predict(MLR_AIC, newdata = validDF[-1])
     
     # MLR Confusion Matrix
-    confMat_MLR = table(true = dfValid[,1], pred = MLR_yPred)
+    MLR_ConfMat = table(true = validDF[,1], pred = MLR_yPred)
     
     # MLR Genauigkeit
-    accuracy_MLR[i,] <- c(i, sum(diag(confMat_MLR))/sum(confMat_MLR))
+    MLR_Accuracy[i,] <- c(i, sum(diag(MLR_ConfMat))/sum(MLR_ConfMat))
     
     # SVM
     classifierSVM <- svm(y ~ .,
-                  data = dfTrain,
+                  data = trainDF,
                   type = "C-classification",
                   kernel = "radial"
                   , gamma = 0.1, 
                   cost = 10)
     
     # SVM Vorhersage
-    y_pred_SVM = predict(classifierSVM, newdata = dfValid[-1])
+    y_pred_SVM = predict(classifierSVM, newdata = validDF[-1])
     
     # SVM Confusion Matrix
-    confMat_SVM = table(true = dfValid[,1], pred = y_pred_SVM)
+    confMat_SVM = table(true = validDF[,1], pred = y_pred_SVM)
     
     # SVM Genauigkeit
     SVM_Accuracy[i,] <- c(i,sum(diag(confMat_SVM))/sum(confMat_SVM))
@@ -658,7 +656,7 @@ for (i in c(1:simRuns)) {
 
 #warning()
 
-boxplot(accuracy_MLR$Accuracy, SVM_Accuracy$Accuracy)
+boxplot(MLR_Accuracy$Accuracy, SVM_Accuracy$Accuracy)
 
 ```
 
