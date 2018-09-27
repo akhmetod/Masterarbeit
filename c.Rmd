@@ -231,7 +231,7 @@ c4 <- ggplot(data = surveyDF, aes(x = anos_escolaridad, fill = cuadrantes)) +
             geom_histogram(stat = 'count', position = 'fill') +
             theme_light() +
             labs(#title = "C.4 Armutskategorie nach Bildungsdauer",
-                 y = "Anteil der Beobachtung je Alter",
+                 y = "Anteil der Beobachtungen",
                  x = "Bildungsjahre",
                  fill = "Armutskategorie") + 
             #scale_x_discrete(limits = c('Kein Schulbesuch','Grundschule', 'Mittelschule', 'Oberschule', 'Studium')) +
@@ -347,13 +347,45 @@ c6 <- ggplot(data = surveyDF, aes(x = tam_loc, fill = cuadrantes)) +
 
 ggsave(plot = c6, filename = "C6.pdf", width = 297, height = 210, units = "mm")
 
-rm("c1","c2","c3","c4","c5","c6")
+# Verteilung parentsco
+c7 <- ggplot(data = surveyDF, aes(x = parentesco, fill = cuadrantes)) +
+            geom_bar(position = 'stack', width = 0.75) +
+            theme_light() +
+            labs(y = "Anzahl der Beobachtung") +
+            scale_fill_discrete("Armutskategorie",
+                                labels = c("extreme Armut\t", "gemilderte Armut\t", 
+                                        "anfällige Armut aufgrund niedrigem Einkommen",
+                                        "anfällige Armut aufgrund Sozialmangel", 
+                                        "keine Armut")) +
+            theme(#plot.title = element_text(size = 28, face = "bold"),
+                  axis.line.x = element_line(color = "black", size = 0.5),
+                  axis.line.y = element_line(color = "black", size = 0.5),
+                  axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0)),
+                  axis.text.y = element_text(size = 20, margin = margin(t = 0, r = 0, b = 0, l = 10)),
+                  #axis.title.x = element_text(size = 24, face = "bold"),
+                  axis.title.x = element_blank(),
+                  axis.title.y = element_text(size = 24, face = "bold"),
+                  axis.ticks.length = unit(.25, "cm"),
+                  axis.ticks = element_line(colour = "black"),
+                  legend.title = element_blank(),
+                  legend.margin = margin(c(0,10,0,0)),
+                  legend.text = element_text(size = 18),
+                  legend.position = "bottom",
+                  legend.background = element_blank(),
+                  legend.box.background = element_rect(colour = "black"),
+                  legend.box.margin = margin(c(5,0,5,0)),
+                  legend.key.width = unit(1.5,"line"),
+                  legend.key.height = unit(2,"line")) +
+            guides(fill = guide_legend(nrow = 2)) 
 
-names(surveyDF)
-describe(surveyDF$ic_asalud)
+surveyDF <- surveyDF %>% mutate(parentesco = case_when(
+        parentesco %in% c(101,201,301) ~ as.numeric(as.character(surveyDF$parentesco)),
+        TRUE ~ as.numeric(999)
+    )
+)
+surveyDF$parentesco <- factor(surveyDF$parentesco)
 
-ggplot(data = surveyDF, aes(x = jub, fill = cuadrantes)) +
-            geom_bar(position = 'fill', width = 0.75) 
+describe(surveyDF$rururb)
 
 ```
 
@@ -420,9 +452,9 @@ folds <- createFolds(surveyDF$cuadrantes, k = 10, list = TRUE, returnTrain = FAL
 library(nnet)
 
 # MLR k-fache Kreuzvalidierung
-MLR_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
+#MLR_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
 MLR_RmVar <- data.frame(Fold = integer(), rmVar = integer())
-MLR_ConfMat <- list()
+#MLR_ConfMat <- list()
 
 for (i in c(1:10)) {
     
@@ -440,21 +472,35 @@ for (i in c(1:10)) {
     MLR_RmVar[i,] <- c(i, paste(MLR_FULL$vcoefnames[which(!(MLR_FULL$vcoefnames %in% MLR_AIC$vcoefnames))], collapse = " "))
     
     # MLR k-fache Kreuzvalidierung Vorhersage
-    MLR_yPred <- predict(MLR_AIC, newdata = validDF[-1])
+    #MLR_yPred <- predict(MLR_AIC, newdata = validDF[-1])
     
     # MLR k-fache Kreuzvalidierung Confusion Matrix
-    MLR_ConfMat[[i]] = table(true = validDF[,1], pred = MLR_yPred)
+    #MLR_ConfMat[[i]] = table(true = validDF[,1], pred = MLR_yPred)
     
     # MLR k-fache Kreuzvalidierung Genauigkeit
-    MLR_Accuracy[i,] <- c(i, sum(diag(MLR_ConfMat[[i]]))/sum(MLR_ConfMat[[i]])) 
+    #MLR_Accuracy[i,] <- c(i, sum(diag(MLR_ConfMat[[i]]))/sum(MLR_ConfMat[[i]])) 
     
 }
 
 # Evaluation MLR k-fache Kreuzvalidierung 
-mean(MLR_Accuracy$Accuracy) # Durchschnittliche Genauigkeit der k Iterationen
 MLR_RmVar # zu entfernende erklärende der k Iterationen
 
+#[, !(names(surveyDF) %in% c('sexo', 'habl_ind', 'parentesco'))]
 
+# Finale MLR in Testdaten anwenden
+MLR_Final <- multinom(cuadrantes ~ ., data = surveyDF)
+MLR_Final_AIC <- step(MLR_Final, direction = 'backward', trace = 0)
+
+#paste(MLR_Final$vcoefnames[which(!(MLR_Final$vcoefnames %in% MLR_Final_AIC$vcoefnames))], collapse = " ")
+
+# MLR k-fache Kreuzvalidierung Vorhersage
+MLR_yPred <- predict(MLR_Final, newdata = surveyTestDF[-1])
+
+# MLR k-fache Kreuzvalidierung Confusion Matrix
+MLR_ConfMat = table(true = surveyTestDF[,1], pred = MLR_yPred)
+
+# MLR k-fache Kreuzvalidierung Genauigkeit
+MLR_Accuracy <- sum(diag(MLR_ConfMat))/sum(MLR_ConfMat)
 
 rm("i", "validID", "validDF", "trainID", "trainDF", "MLR_yPred")
 ```
