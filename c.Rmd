@@ -56,15 +56,19 @@ rm(missingCensus)
 censusDF <- censusDF[, !(colnames(censusDF) %in% missingRmVar[1:5,1])]
 surveyDF <- surveyDF[, !(colnames(surveyDF) %in% missingRmVar[1:5,1])]
 
-# Variable ent wird entfernt, da nur ein Wert für alle Beobachtungen
-censusDF <- censusDF[, -which(colnames(censusDF) %in% c('ent', 'habl_ind'))]
-surveyDF <- surveyDF[, -which(colnames(surveyDF) %in% c('ent', 'habl_ind'))]
-
 # Hilfsvariablen werden entfernt
 hilfsvariablen <- c('est_dis', 'factor', 'mun', 'upm')
 surveyDF <- surveyDF[ , !(names(surveyDF)  %in% hilfsvariablen)]
 censusDF <- censusDF[ , !(names(censusDF)  %in% hilfsvariablen)]
 rm(hilfsvariablen)
+
+# Variablen mit knapp Zero-Varianz werden entfernt
+library(caret)
+nearZeroVar(surveyDF, names = TRUE)
+nearZeroVar(censusDF, names = TRUE)
+
+censusDF <- censusDF[, -which(colnames(censusDF) %in% c('ent', 'habl_ind'))]
+surveyDF <- surveyDF[, -which(colnames(surveyDF) %in% c('ent', 'habl_ind'))]
 
 # Transformation numerischer in kategorialer Variablen. Ausgenommen sind edad und anos_escolaridad, da sie metrisch skaliert sind.
 surveyDF$cuadrantes <- factor(surveyDF$cuadrantes, levels = c(1,2,3,4,5), 
@@ -79,8 +83,6 @@ names(surveyDF)[6] <- 'anos_escolaridad' #Umbenennung für richtige Zeichencodie
 names(censusDF)[5] <- 'anos_escolaridad' #Umbenennung für richtige Zeichencodierung
 
 listDF <- c("surveyDF", "censusDF")
-
-surveyDF$ic_asalud
 
 for (i in c(1,2)) {
     
@@ -420,12 +422,6 @@ abb66b <- ggplot(data = surveyDF, aes(x = parentesco, fill = cuadrantes)) +
             guides(fill = guide_legend(nrow = 2)) 
 
 ggsave(plot = abb66b, filename = "Abbildung_6_6b.pdf", width = 297, height = 210, units = "mm")
-
-done <- c('cuadrantes', 'sexo', 'edad', 'anos_escolaridad', 'ic_rezedu', 
-          'rururb', 'tam_loc', 'parentesco', 'pea', 'dhind_cy', 'dhind_parent', 
-          'ic_asalud', 'ic_sbv', 'jub')
-
-names(surveyDF)
 
 c9 <- ggplot(data = surveyDF, aes(x = c_ocupa, fill = cuadrantes)) +
             geom_bar(position = 'stack', width = 0.75) +
