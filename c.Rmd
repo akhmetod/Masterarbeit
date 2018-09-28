@@ -57,8 +57,8 @@ censusDF <- censusDF[, !(colnames(censusDF) %in% missingRmVar[1:5,1])]
 surveyDF <- surveyDF[, !(colnames(surveyDF) %in% missingRmVar[1:5,1])]
 
 # Variable ent wird entfernt, da nur ein Wert für alle Beobachtungen
-censusDF <- censusDF[, -which(colnames(censusDF) %in% c('ent'))]
-surveyDF <- surveyDF[, -which(colnames(surveyDF) %in% c('ent'))]
+censusDF <- censusDF[, -which(colnames(censusDF) %in% c('ent', 'habl_ind'))]
+surveyDF <- surveyDF[, -which(colnames(surveyDF) %in% c('ent', 'habl_ind'))]
 
 # Hilfsvariablen werden entfernt
 hilfsvariablen <- c('est_dis', 'factor', 'mun', 'upm')
@@ -75,10 +75,12 @@ surveyDF$cuadrantes <- factor(surveyDF$cuadrantes, levels = c(1,2,3,4,5),
 surveyDF$asis_esc <- surveyDF$asis_esc - 1 #Damit gleiche Werte mit Census Datei
 censusDF$sexo <- censusDF$sexo - 1 #Damit gleiche Werte mit Survey Datei
 
-names(surveyDF)[7] <- 'anos_escolaridad' #Umbenennung für richtige Zeichencodierung
-names(censusDF)[6] <- 'anos_escolaridad' #Umbenennung für richtige Zeichencodierung
+names(surveyDF)[6] <- 'anos_escolaridad' #Umbenennung für richtige Zeichencodierung
+names(censusDF)[5] <- 'anos_escolaridad' #Umbenennung für richtige Zeichencodierung
 
 listDF <- c("surveyDF", "censusDF")
+
+surveyDF$ic_asalud
 
 for (i in c(1,2)) {
     
@@ -86,7 +88,7 @@ for (i in c(1,2)) {
     
     df$parentesco <- factor(df$parentesco)
     df$sexo <- factor(df$sexo, levels = c(0,1), labels = c('Weiblich','Männlich'))
-    df$habl_ind <- factor(df$habl_ind, levels = c(0,1), labels = c('Nein','Ja'))
+    #df$habl_ind <- factor(df$habl_ind, levels = c(0,1), labels = c('Nein','Ja'))
     df$asis_esc <- factor(df$asis_esc, levels = c(0,1), labels = c('Nein','Ja'))
     df$pea <- factor(df$pea)
     df$c_ocupa <- factor(df$c_ocupa)
@@ -112,7 +114,7 @@ rm(i)
 
 ```{r Diagramme, warning = FALSE}
 # Verteilung Armutskategorie 
-c1 <- ggplot(data = surveyDF, aes(x = cuadrantes, fill = cuadrantes)) +
+abb61 <- ggplot(data = surveyDF, aes(x = cuadrantes, fill = cuadrantes)) +
             geom_bar(width = 0.75) +
             theme_light() +
             labs(y = "Anzahl der Beobachtung",
@@ -133,10 +135,10 @@ c1 <- ggplot(data = surveyDF, aes(x = cuadrantes, fill = cuadrantes)) +
                   axis.ticks.length = unit(.25, "cm"),
                   axis.ticks = element_line(colour = "black"))
 
-ggsave(plot = c1, filename = "C1.pdf", width = 297, height = 210, units = "mm")
+ggsave(plot = abb61, filename = "Abbildung_6_1.pdf", width = 297, height = 210, units = "mm")
 
 # Armutskategorie nach Geschlecht
-c2 <- ggplot(data = surveyDF, aes(x = cuadrantes, fill = sexo)) +
+abb62 <- ggplot(data = surveyDF, aes(x = cuadrantes, fill = sexo)) +
             geom_bar(position = 'dodge', width = 0.75) +
             theme_light() +
             labs(#title = "C.2 Armutskategorie nach Geschlecht",
@@ -164,7 +166,7 @@ c2 <- ggplot(data = surveyDF, aes(x = cuadrantes, fill = sexo)) +
                   legend.background = element_blank(),
                   legend.box.background = element_rect(colour = "black"))
 
-ggsave(plot = c2, filename = "C2.pdf", width = 297, height = 210, units = "mm")
+ggsave(plot = abb62, filename = "Abbildung_6_2.pdf", width = 297, height = 210, units = "mm")
 
 
 # surveyDF <- surveyDF %>% mutate(ageGroup = case_when(
@@ -187,7 +189,7 @@ ggsave(plot = c2, filename = "C2.pdf", width = 297, height = 210, units = "mm")
 # surveyDF$eduLevel <- factor(surveyDF$eduLevel, levels = c("Kein Schulbesuch", "Grundschule", "Mittelschule", "Oberschule","Studium"))
 
 # Armutskategorie nach Alter
-c3 <- ggplot(data = surveyDF, aes(x = edad, fill = cuadrantes)) +
+abb63 <- ggplot(data = surveyDF, aes(x = edad, fill = cuadrantes)) +
             geom_histogram(position = "fill", bins = 30) +
             geom_vline(xintercept = mean(surveyDF$edad), linetype = "dashed", size = 1) +
             theme_light() +
@@ -224,10 +226,10 @@ c3 <- ggplot(data = surveyDF, aes(x = edad, fill = cuadrantes)) +
                   legend.key.height = unit(2,"line")) +
             guides(fill = guide_legend(nrow = 2))
 
-ggsave(plot = c3, filename = "C3.pdf", width = 297, height = 210, units = "mm")
+ggsave(plot = abb63, filename = "Abbildung_6_3.pdf", width = 297, height = 210, units = "mm")
 
 # Armutskategorie nach Bildungsjahre
-c4 <- ggplot(data = surveyDF, aes(x = anos_escolaridad, fill = cuadrantes)) +
+abb64 <- ggplot(data = surveyDF, aes(x = anos_escolaridad, fill = cuadrantes)) +
             geom_histogram(stat = 'count', position = 'fill') +
             theme_light() +
             labs(#title = "C.4 Armutskategorie nach Bildungsdauer",
@@ -267,10 +269,10 @@ c4 <- ggplot(data = surveyDF, aes(x = anos_escolaridad, fill = cuadrantes)) +
             facet_grid(ic_rezedu ~ ., labeller = as_labeller(c('Nein' = 'Keine Verzögerung',
                                                                'Ja' = 'Mit Verzögerung'))) 
 
-ggsave(plot = c4, filename = "C4.pdf", width = 297, height = 210, units = "mm")
+ggsave(plot = abb64, filename = "Abbildung_6_4.pdf", width = 297, height = 210, units = "mm")
 
 # Armutskategorie nach Wohnort
-c5 <- ggplot(data = surveyDF, aes(x = rururb, fill = cuadrantes)) +
+abb65a <- ggplot(data = surveyDF, aes(x = rururb, fill = cuadrantes)) +
             geom_histogram(stat = 'count', position = 'fill') +
             theme_light() +
             labs(#title = "C.5 Armutskategorie nach Wohnort",
@@ -306,10 +308,10 @@ c5 <- ggplot(data = surveyDF, aes(x = rururb, fill = cuadrantes)) +
                   strip.text = element_text(colour = "black", size = 16)) +
             guides(fill = guide_legend(nrow = 2)) 
 
-ggsave(plot = c5, filename = "C5.pdf", width = 297, height = 210, units = "mm")
+ggsave(plot = abb65a, filename = "Abbildung_6_5a.pdf", width = 297, height = 210, units = "mm")
 
 # Armutskategorie nach Wohnortgröße
-c6 <- ggplot(data = surveyDF, aes(x = tam_loc, fill = cuadrantes)) +
+abb65b <- ggplot(data = surveyDF, aes(x = tam_loc, fill = cuadrantes)) +
             geom_histogram(stat = 'count', position = 'fill') +
             theme_light() +
             labs(#title = "C.6 Armutskategorie nach Einwohnerzahl des Wohnorts",
@@ -345,10 +347,10 @@ c6 <- ggplot(data = surveyDF, aes(x = tam_loc, fill = cuadrantes)) +
             guides(fill = guide_legend(nrow = 2)) +
             facet_grid(rururb ~ .)
 
-ggsave(plot = c6, filename = "C6.pdf", width = 297, height = 210, units = "mm")
+ggsave(plot = abb65b, filename = "Abbildung_6_5b.pdf", width = 297, height = 210, units = "mm")
 
 # Verteilung parentsco
-c7 <- ggplot(data = surveyDF, aes(x = parentesco, fill = cuadrantes)) +
+abb66a <- ggplot(data = surveyDF, aes(x = parentesco, fill = cuadrantes)) +
             geom_bar(position = 'stack', width = 0.75) +
             theme_light() +
             labs(y = "Anzahl der Beobachtung") +
@@ -378,7 +380,7 @@ c7 <- ggplot(data = surveyDF, aes(x = parentesco, fill = cuadrantes)) +
                   legend.key.height = unit(2,"line")) +
             guides(fill = guide_legend(nrow = 2)) 
 
-ggsave(plot = c7, filename = "C7.pdf", width = 297, height = 210, units = "mm")
+ggsave(plot = abb66a, filename = "Abbildung_6_6a.pdf", width = 297, height = 210, units = "mm")
 
 surveyDF <- surveyDF %>% mutate(parentesco = case_when(
         parentesco %in% c(101,201,301) ~ as.numeric(as.character(surveyDF$parentesco)),
@@ -387,7 +389,7 @@ surveyDF <- surveyDF %>% mutate(parentesco = case_when(
 )
 surveyDF$parentesco <- factor(surveyDF$parentesco)
 
-c8 <- ggplot(data = surveyDF, aes(x = parentesco, fill = cuadrantes)) +
+abb66b <- ggplot(data = surveyDF, aes(x = parentesco, fill = cuadrantes)) +
             geom_bar(position = 'stack', width = 0.75) +
             theme_light() +
             labs(y = "Anzahl der Beobachtung") +
@@ -417,16 +419,15 @@ c8 <- ggplot(data = surveyDF, aes(x = parentesco, fill = cuadrantes)) +
                   legend.key.height = unit(2,"line")) +
             guides(fill = guide_legend(nrow = 2)) 
 
-ggsave(plot = c8, filename = "C8.pdf", width = 297, height = 210, units = "mm")
+ggsave(plot = abb66b, filename = "Abbildung_6_6b.pdf", width = 297, height = 210, units = "mm")
 
-sort(names(surveyDF))[c('c_ocupa', 'ic_asalud', 
-                        'ic_cv', 'ic_rezedu', 'ic_sbv', 'idD', 'jub')]
+done <- c('cuadrantes', 'sexo', 'edad', 'anos_escolaridad', 'ic_rezedu', 
+          'rururb', 'tam_loc', 'parentesco', 'pea', 'dhind_cy', 'dhind_parent', 
+          'ic_asalud', 'ic_sbv', 'jub')
 
-describe(surveyDF$ic_asalud)
+names(surveyDF)
 
-unique(surveyDF[surveyDF$ic_asalud == 1, c('cuadrantes', 'ic_asalud')])
-
-c9 <- ggplot(data = surveyDF, aes(x = ic_asalud, fill = cuadrantes)) +
+c9 <- ggplot(data = surveyDF, aes(x = c_ocupa, fill = cuadrantes)) +
             geom_bar(position = 'stack', width = 0.75) +
             theme_light() +
             labs(y = "Anzahl der Beobachtung") +
@@ -465,16 +466,16 @@ ggsave(plot = c9, filename = "C9.pdf", width = 297, height = 210, units = "mm")
 # Fehlende Werte asis_esc & habl_ind 
 ## (surveyDF: Modus je Armutskategorie; censusDF: Modus)
 Mode2 <- function(x) {tab <- table(x); names(tab)[which.max(tab)]} #Quelle: https://stat.ethz.ch/pipermail/r-help/2010-March/231975.html 
-aggregate(surveyDF[c('asis_esc', 'habl_ind')],
+aggregate(surveyDF[c('asis_esc')],
           by = list(surveyDF$cuadrantes),
           FUN = Mode2)
 rm(Mode2)
 
 surveyDF$asis_esc[which(is.na(surveyDF$asis_esc))] <- 'Ja'
-surveyDF$habl_ind[which(is.na(surveyDF$habl_ind))] <- 'Nein'
+#surveyDF$habl_ind[which(is.na(surveyDF$habl_ind))] <- 'Nein'
 
 censusDF$asis_esc[which(is.na(surveyDF$asis_esc))] <- names(which.max(table(censusDF['asis_esc'])))
-censusDF$habl_ind[which(is.na(surveyDF$habl_ind))] <- names(which.max(table(censusDF['habl_ind'])))
+#censusDF$habl_ind[which(is.na(surveyDF$habl_ind))] <- names(which.max(table(censusDF['habl_ind'])))
 
 # Fehlende Werte anos_escolaridad 
 # (surveyDF: Median je Armutskategorie; censusDF: Median)
