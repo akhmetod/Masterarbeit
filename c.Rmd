@@ -378,6 +378,8 @@ c7 <- ggplot(data = surveyDF, aes(x = parentesco, fill = cuadrantes)) +
                   legend.key.height = unit(2,"line")) +
             guides(fill = guide_legend(nrow = 2)) 
 
+ggsave(plot = c7, filename = "C7.pdf", width = 297, height = 210, units = "mm")
+
 surveyDF <- surveyDF %>% mutate(parentesco = case_when(
         parentesco %in% c(101,201,301) ~ as.numeric(as.character(surveyDF$parentesco)),
         TRUE ~ as.numeric(999)
@@ -385,8 +387,78 @@ surveyDF <- surveyDF %>% mutate(parentesco = case_when(
 )
 surveyDF$parentesco <- factor(surveyDF$parentesco)
 
-describe(surveyDF$rururb)
+c8 <- ggplot(data = surveyDF, aes(x = parentesco, fill = cuadrantes)) +
+            geom_bar(position = 'stack', width = 0.75) +
+            theme_light() +
+            labs(y = "Anzahl der Beobachtung") +
+            scale_fill_discrete("Armutskategorie",
+                                labels = c("extreme Armut\t", "gemilderte Armut\t", 
+                                        "anfällige Armut aufgrund niedrigem Einkommen",
+                                        "anfällige Armut aufgrund Sozialmangel", 
+                                        "keine Armut")) +
+            theme(#plot.title = element_text(size = 28, face = "bold"),
+                  axis.line.x = element_line(color = "black", size = 0.5),
+                  axis.line.y = element_line(color = "black", size = 0.5),
+                  axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0)),
+                  axis.text.y = element_text(size = 20, margin = margin(t = 0, r = 0, b = 0, l = 10)),
+                  #axis.title.x = element_text(size = 24, face = "bold"),
+                  axis.title.x = element_blank(),
+                  axis.title.y = element_text(size = 24, face = "bold"),
+                  axis.ticks.length = unit(.25, "cm"),
+                  axis.ticks = element_line(colour = "black"),
+                  legend.title = element_blank(),
+                  legend.margin = margin(c(0,10,0,0)),
+                  legend.text = element_text(size = 18),
+                  legend.position = "bottom",
+                  legend.background = element_blank(),
+                  legend.box.background = element_rect(colour = "black"),
+                  legend.box.margin = margin(c(5,0,5,0)),
+                  legend.key.width = unit(1.5,"line"),
+                  legend.key.height = unit(2,"line")) +
+            guides(fill = guide_legend(nrow = 2)) 
 
+ggsave(plot = c8, filename = "C8.pdf", width = 297, height = 210, units = "mm")
+
+sort(names(surveyDF))[c('c_ocupa', 'ic_asalud', 
+                        'ic_cv', 'ic_rezedu', 'ic_sbv', 'idD', 'jub')]
+
+describe(surveyDF$ic_asalud)
+
+unique(surveyDF[surveyDF$ic_asalud == 1, c('cuadrantes', 'ic_asalud')])
+
+c9 <- ggplot(data = surveyDF, aes(x = ic_asalud, fill = cuadrantes)) +
+            geom_bar(position = 'stack', width = 0.75) +
+            theme_light() +
+            labs(y = "Anzahl der Beobachtung") +
+            scale_fill_discrete("Armutskategorie",
+                                labels = c("extreme Armut\t", "gemilderte Armut\t", 
+                                        "anfällige Armut aufgrund niedrigem Einkommen",
+                                        "anfällige Armut aufgrund Sozialmangel", 
+                                        "keine Armut")) +
+            theme(#plot.title = element_text(size = 28, face = "bold"),
+                  axis.line.x = element_line(color = "black", size = 0.5),
+                  axis.line.y = element_line(color = "black", size = 0.5),
+                  axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0)),
+                  axis.text.y = element_text(size = 20, margin = margin(t = 0, r = 0, b = 0, l = 10)),
+                  #axis.title.x = element_text(size = 24, face = "bold"),
+                  axis.title.x = element_blank(),
+                  axis.title.y = element_text(size = 24, face = "bold"),
+                  axis.ticks.length = unit(.25, "cm"),
+                  axis.ticks = element_line(colour = "black"),
+                  legend.title = element_blank(),
+                  legend.margin = margin(c(0,10,0,0)),
+                  legend.text = element_text(size = 18),
+                  legend.position = "bottom",
+                  legend.background = element_blank(),
+                  legend.box.background = element_rect(colour = "black"),
+                  legend.box.margin = margin(c(5,0,5,0)),
+                  legend.key.width = unit(1.5,"line"),
+                  legend.key.height = unit(2,"line")) +
+            guides(fill = guide_legend(nrow = 2)) 
+
+c9
+
+ggsave(plot = c9, filename = "C9.pdf", width = 297, height = 210, units = "mm")
 ```
 
 ```{r Behandlung fehlender Werte, warning = FALSE}
