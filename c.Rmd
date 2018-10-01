@@ -547,7 +547,7 @@ for (i in c(1:10)) {
     trainDF <- surveyTrainDF[c(unlist(folds[trainID])),]
     
     # Trainiere k-1 Folds
-    MLR_FULL <- multinom(cuadrantes ~ ., data = trainDF)
+    MLR_FULL <- multinom(cuadrantes ~ ., data = trainDF, maxit = 1000)
     MLR_AIC <- step(MLR_FULL, direction = 'backward', trace = 0)
     
     # Zu entfernende erklärende Variablen
@@ -591,7 +591,7 @@ rm("i", "validID", "validDF", "trainID", "trainDF", "MLR_yPred")
 ```{r Modellierung Linear SVM}
 # Parameteroptimierung linearer SVM
 linSVM_Tune <- tune.svm(cuadrantes ~ ., data = surveyTrainDF, 
-                        kernel = 'linear', cost = 10^c(-5:5))
+                        kernel = 'linear', cost = 10^c(-3:3))
 linSVM_Tune_Result <- data.frame(C = linSVM_Tune$performances[,1], 
                                  Accuracy = 1 - linSVM_Tune$performances[,2])
 
