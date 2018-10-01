@@ -16,6 +16,10 @@ library(xtable)
 library(Hmisc)
 library(params)
 library(gridExtra)
+library(caret)
+library(caTools)
+library(nnet)
+library(e1071)
 options(xtable.floating = FALSE)
 options(xtable.timestamp = "")
 #options(scipen = 999)
@@ -56,19 +60,22 @@ rm(missingCensus)
 censusDF <- censusDF[, !(colnames(censusDF) %in% missingRmVar[1:5,1])]
 surveyDF <- surveyDF[, !(colnames(surveyDF) %in% missingRmVar[1:5,1])]
 
+sort(names(surveyDF))
+
 # Hilfsvariablen werden entfernt
-hilfsvariablen <- c('est_dis', 'factor', 'mun', 'upm')
+hilfsvariablen <- c('est_dis', 'ent', 'factor', 'mun', 'upm')
 surveyDF <- surveyDF[ , !(names(surveyDF)  %in% hilfsvariablen)]
 censusDF <- censusDF[ , !(names(censusDF)  %in% hilfsvariablen)]
 rm(hilfsvariablen)
 
-# Variablen mit knapp Zero-Varianz werden entfernt
-library(caret)
-nearZeroVar(surveyDF, names = TRUE)
-nearZeroVar(censusDF, names = TRUE)
+# Variablen mit Near-Zero-Varianz werden entfernt
+zeroVar <- data.frame(surveyDF = nearZeroVar(surveyDF, name = TRUE), 
+                      censusDF = nearZeroVar(censusDF, name = TRUE))
 
-censusDF <- censusDF[, -which(colnames(censusDF) %in% c('ent', 'habl_ind'))]
-surveyDF <- surveyDF[, -which(colnames(surveyDF) %in% c('ent', 'habl_ind'))]
+#describe(as.factor(surveyDF$dhind_cy))
+
+surveyDF <- surveyDF %>% select(-c(nearZeroVar(surveyDF)))
+censusDF <- censusDF %>% select(-c(nearZeroVar(censusDF)))
 
 # Transformation numerischer in kategorialer Variablen. Ausgenommen sind edad und anos_escolaridad, da sie metrisch skaliert sind.
 surveyDF$cuadrantes <- factor(surveyDF$cuadrantes, levels = c(1,2,3,4,5), 
@@ -95,8 +102,8 @@ for (i in c(1,2)) {
     df$pea <- factor(df$pea)
     df$c_ocupa <- factor(df$c_ocupa)
     df$sector_act <- factor(df$sector_act)
-    df$jub <- factor(df$jub, levels = c(0,1), labels = c('Nein','Ja'))
-    df$dhind_cy <- factor(df$dhind_cy, levels = c(0,1), labels = c('Nein','Ja'))
+    #df$jub <- factor(df$jub, levels = c(0,1), labels = c('Nein','Ja'))
+    #df$dhind_cy <- factor(df$dhind_cy, levels = c(0,1), labels = c('Nein','Ja'))
     df$dhind_parent <- factor(df$dhind_parent, levels = c(0,1), labels = c('Nein','Ja'))
     df$ic_rezedu <- factor(df$ic_rezedu, levels = c(0,1), labels = c('Nein','Ja'))
     df$ic_asalud <- factor(df$ic_asalud, levels = c(0,1), labels = c('Nein','Ja'))
@@ -117,58 +124,58 @@ rm(i)
 ```{r Diagramme, warning = FALSE}
 # Verteilung Armutskategorie 
 abb61 <- ggplot(data = surveyDF, aes(x = cuadrantes, fill = cuadrantes)) +
-            geom_bar(width = 0.75) +
-            theme_light() +
-            labs(y = "Anzahl der Beobachtung",
-                 x = "Armutskategorie") +
-            scale_fill_discrete(guide = FALSE) +
-            scale_x_discrete(labels = c("extreme\nArmut", "gemilderte\nArmut", 
-                                        "anfällige Armut\naufgrund\nniedrigem\nEinkommen",
-                                        "anfällige Armut\naufgrund\nSozialmangel", 
-                                        "keine\nArmut")) +
-            theme(#plot.title = element_text(size = 28, face = "bold"),
-                  axis.line.x = element_line(color = "black", size = 0.5),
-                  axis.line.y = element_line(color = "black", size = 0.5),
-                  axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0)),
-                  axis.text.y = element_text(size = 20, margin = margin(t = 0, r = 0, b = 0, l = 10)),
-                  #axis.title.x = element_text(size = 24, face = "bold"),
-                  axis.title.x = element_blank(),
-                  axis.title.y = element_text(size = 24, face = "bold"),
-                  axis.ticks.length = unit(.25, "cm"),
-                  axis.ticks = element_line(colour = "black"))
+    geom_bar(width = 0.75) +
+    theme_light() +
+    labs(y = "Anzahl der Beobachtung",
+         x = "Armutskategorie") +
+    scale_fill_discrete(guide = FALSE) +
+    scale_x_discrete(labels = c("extreme\nArmut", "gemilderte\nArmut", 
+                                "anfällige Armut\naufgrund\nniedrigem\nEinkommen",
+                                "anfällige Armut\naufgrund\nSozialmangel", 
+                                "keine\nArmut")) +
+    theme(#plot.title = element_text(size = 28, face = "bold"),
+          axis.line.x = element_line(color = "black", size = 0.5),
+          axis.line.y = element_line(color = "black", size = 0.5),
+          axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0)),
+          axis.text.y = element_text(size = 20, margin = margin(t = 0, r = 0, b = 0, l = 10)),
+          #axis.title.x = element_text(size = 24, face = "bold"),
+          axis.title.x = element_blank(),
+          axis.title.y = element_text(size = 24, face = "bold"),
+          axis.ticks.length = unit(.25, "cm"),
+          axis.ticks = element_line(colour = "black"))
 
-ggsave(plot = abb61, filename = "Abbildung_6_1.pdf", width = 297, height = 210, units = "mm")
+#ggsave(plot = abb61, filename = "Abbildung_6_1.pdf", width = 297, height = 210, units = "mm")
 
 # Armutskategorie nach Geschlecht
 abb62 <- ggplot(data = surveyDF, aes(x = cuadrantes, fill = sexo)) +
-            geom_bar(position = 'dodge', width = 0.75) +
-            theme_light() +
-            labs(#title = "C.2 Armutskategorie nach Geschlecht",
-                 y = "Anzahl der Beobachtung",
-                 x = " ",
-                 fill = "Geschlecht") +
-            scale_x_discrete("Armutskategorie",
-                             labels = c("extreme\nArmut", "gemilderte\nArmut", 
-                                        "anfällige Armut\naufgrund\nniedrigem\nEinkommen",
-                                        "anfällige Armut\naufgrund\nSozialmangel", 
-                                        "keine\nArmut")) +
-            theme(#plot.title = element_text(size = 28, face = "bold"),
-                  axis.line.x = element_line(color = "black", size = 0.5),
-                  axis.line.y = element_line(color = "black", size = 0.5),
-                  axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0)),
-                  axis.text.y = element_text(size = 20, margin = margin(t = 0, r = 0, b = 0, l = 10)),
-                  #axis.title.x = element_text(size = 24, face = "bold"),
-                  axis.title.x = element_blank(),
-                  axis.title.y = element_text(size = 24, face = "bold"),
-                  axis.ticks.length = unit(.25, "cm"),
-                  axis.ticks = element_line(colour = "black"),
-                  legend.text = element_text(size = 18),
-                  legend.title = element_text(size = 20, face = "bold"),
-                  legend.position = c(0.9,0.9),
-                  legend.background = element_blank(),
-                  legend.box.background = element_rect(colour = "black"))
+    geom_bar(position = 'dodge', width = 0.75) +
+    theme_light() +
+    labs(#title = "C.2 Armutskategorie nach Geschlecht",
+         y = "Anzahl der Beobachtung",
+         x = " ",
+         fill = "Geschlecht") +
+    scale_x_discrete("Armutskategorie",
+                     labels = c("extreme\nArmut", "gemilderte\nArmut", 
+                                "anfällige Armut\naufgrund\nniedrigem\nEinkommen",
+                                "anfällige Armut\naufgrund\nSozialmangel", 
+                                "keine\nArmut")) +
+    theme(#plot.title = element_text(size = 28, face = "bold"),
+          axis.line.x = element_line(color = "black", size = 0.5),
+          axis.line.y = element_line(color = "black", size = 0.5),
+          axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0)),
+          axis.text.y = element_text(size = 20, margin = margin(t = 0, r = 0, b = 0, l = 10)),
+          #axis.title.x = element_text(size = 24, face = "bold"),
+          axis.title.x = element_blank(),
+          axis.title.y = element_text(size = 24, face = "bold"),
+          axis.ticks.length = unit(.25, "cm"),
+          axis.ticks = element_line(colour = "black"),
+          legend.text = element_text(size = 18),
+          legend.title = element_text(size = 20, face = "bold"),
+          legend.position = c(0.9,0.9),
+          legend.background = element_blank(),
+          legend.box.background = element_rect(colour = "black"))
 
-ggsave(plot = abb62, filename = "Abbildung_6_2.pdf", width = 297, height = 210, units = "mm")
+#ggsave(plot = abb62, filename = "Abbildung_6_2.pdf", width = 297, height = 210, units = "mm")
 
 
 # surveyDF <- surveyDF %>% mutate(ageGroup = case_when(
@@ -192,206 +199,251 @@ ggsave(plot = abb62, filename = "Abbildung_6_2.pdf", width = 297, height = 210, 
 
 # Armutskategorie nach Alter
 abb63 <- ggplot(data = surveyDF, aes(x = edad, fill = cuadrantes)) +
-            geom_histogram(position = "fill", bins = 30) +
-            geom_vline(xintercept = mean(surveyDF$edad), linetype = "dashed", size = 1) +
-            theme_light() +
-            labs(#title = "C.3 Armutskategorie nach Alter",
-                 y = "Anteil der Beobachtungen",
-                 x = "Alter",
-                 fill = "Armutskategorie") +
-            scale_x_continuous(breaks = seq(0, 100, by = 10), expand = c(0,0)) +
-            scale_y_continuous(expand = c(0,0)) +
-            scale_fill_discrete("Armutskategorie",
-                                breaks = c("1", "2", "3", "4", "5"), 
-                                labels = c("extreme Armut\t", "gemilderte Armut\t", 
-                                        "anfällige Armut aufgrund niedrigem Einkommen",
-                                        "anfällige Armut aufgrund Sozialmangel", 
-                                        "keine Armut")) +
-            theme(#plot.title = element_text(size = 28, face = "bold"),
-                  axis.line.x = element_line(color = "black", size = 0.5),
-                  axis.line.y = element_line(color = "black", size = 0.5),
-                  axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0)),
-                  axis.text.y = element_text(size = 20, margin = margin(t = 0, r = 0, b = 0, l = 10)),
-                  axis.title.x = element_text(size = 24, face = "bold"),
-                  #axis.title.x = element_blank(),
-                  axis.title.y = element_text(size = 24, face = "bold"),
-                  axis.ticks.length = unit(.25, "cm"),
-                  axis.ticks = element_line(colour = "black"),
-                  legend.title = element_blank(),
-                  legend.margin = margin(c(0,10,0,0)),
-                  legend.text = element_text(size = 18),
-                  legend.position = "bottom",
-                  legend.background = element_blank(),
-                  legend.box.background = element_rect(colour = "black"),
-                  legend.box.margin = margin(c(5,0,5,0)),
-                  legend.key.width = unit(1.5,"line"),
-                  legend.key.height = unit(2,"line")) +
-            guides(fill = guide_legend(nrow = 2))
+    geom_histogram(position = "fill", bins = 30) +
+    geom_vline(xintercept = mean(surveyDF$edad), linetype = "dashed", size = 1) +
+    theme_light() +
+    labs(#title = "C.3 Armutskategorie nach Alter",
+         y = "Anteil der Beobachtungen",
+         x = "Alter",
+         fill = "Armutskategorie") +
+    scale_x_continuous(breaks = seq(0, 100, by = 10), expand = c(0,0)) +
+    scale_y_continuous(expand = c(0,0)) +
+    scale_fill_discrete("Armutskategorie",
+                        breaks = c("1", "2", "3", "4", "5"), 
+                        labels = c("extreme Armut\t", "gemilderte Armut\t", 
+                                "anfällige Armut aufgrund niedrigem Einkommen",
+                                "anfällige Armut aufgrund Sozialmangel", 
+                                "keine Armut")) +
+    theme(#plot.title = element_text(size = 28, face = "bold"),
+          axis.line.x = element_line(color = "black", size = 0.5),
+          axis.line.y = element_line(color = "black", size = 0.5),
+          axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0)),
+          axis.text.y = element_text(size = 20, margin = margin(t = 0, r = 0, b = 0, l = 10)),
+          axis.title.x = element_text(size = 24, face = "bold"),
+          #axis.title.x = element_blank(),
+          axis.title.y = element_text(size = 24, face = "bold"),
+          axis.ticks.length = unit(.25, "cm"),
+          axis.ticks = element_line(colour = "black"),
+          legend.title = element_blank(),
+          legend.margin = margin(c(0,10,0,0)),
+          legend.text = element_text(size = 18),
+          legend.position = "bottom",
+          legend.background = element_blank(),
+          legend.box.background = element_rect(colour = "black"),
+          legend.box.margin = margin(c(5,0,5,0)),
+          legend.key.width = unit(1.5,"line"),
+          legend.key.height = unit(2,"line")) +
+    guides(fill = guide_legend(nrow = 2))
 
-ggsave(plot = abb63, filename = "Abbildung_6_3.pdf", width = 297, height = 210, units = "mm")
+#ggsave(plot = abb63, filename = "Abbildung_6_3.pdf", width = 297, height = 210, units = "mm")
 
 # Armutskategorie nach Bildungsjahre
 abb64 <- ggplot(data = surveyDF, aes(x = anos_escolaridad, fill = cuadrantes)) +
-            geom_histogram(stat = 'count', position = 'fill') +
-            theme_light() +
-            labs(#title = "C.4 Armutskategorie nach Bildungsdauer",
-                 y = "Anteil der Beobachtungen",
-                 x = "Bildungsjahre",
-                 fill = "Armutskategorie") + 
-            #scale_x_discrete(limits = c('Kein Schulbesuch','Grundschule', 'Mittelschule', 'Oberschule', 'Studium')) +
-            scale_x_continuous(breaks = seq(min(surveyDF$anos_escolaridad, na.rm = TRUE), 
-                                            max(surveyDF$anos_escolaridad, na.rm = TRUE), by = 1)) +
-            scale_fill_discrete("Armutskategorie",
-                                breaks = c("1", "2", "3", "4", "5"), 
-                                labels = c("extreme Armut\t", "gemilderte Armut\t", 
-                                        "anfällige Armut aufgrund niedrigem Einkommen",
-                                        "anfällige Armut aufgrund Sozialmangel", 
-                                        "keine Armut")) +
-            theme(#plot.title = element_text(size = 28, face = "bold"),
-                  axis.line.x = element_line(color = "black", size = 0.5),
-                  axis.line.y = element_line(color = "black", size = 0.5),
-                  axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0)),
-                  axis.text.y = element_text(size = 20, margin = margin(t = 0, r = 0, b = 0, l = 10)),
-                  axis.title.x = element_text(size = 24, face = "bold"),
-                  #axis.title.x = element_blank(),
-                  axis.title.y = element_text(size = 24, face = "bold"),
-                  axis.ticks.length = unit(.25, "cm"),
-                  axis.ticks = element_line(colour = "black"),
-                  legend.title = element_blank(),
-                  legend.margin = margin(c(0,10,0,0)),
-                  legend.text = element_text(size = 18),
-                  legend.position = "bottom",
-                  legend.background = element_blank(),
-                  legend.box.background = element_rect(colour = "black"),
-                  legend.box.margin = margin(c(5,0,5,0)),
-                  legend.key.width = unit(1.5,"line"),
-                  legend.key.height = unit(2,"line"),
-                  strip.text = element_text(colour = "black", size = 16)) +
-            guides(fill = guide_legend(nrow = 2)) +
-            facet_grid(ic_rezedu ~ ., labeller = as_labeller(c('Nein' = 'Keine Verzögerung',
-                                                               'Ja' = 'Mit Verzögerung'))) 
+    geom_histogram(stat = 'count', position = 'fill', na.rm = TRUE) +
+    theme_light() +
+    labs(#title = "C.4 Armutskategorie nach Bildungsdauer",
+         y = "Anteil der Beobachtungen",
+         x = "Bildungsjahre",
+         fill = "Armutskategorie") + 
+    #scale_x_discrete(limits = c('Kein Schulbesuch','Grundschule', 'Mittelschule', 'Oberschule', 'Studium')) +
+    scale_x_continuous(breaks = seq(min(surveyDF$anos_escolaridad, na.rm = TRUE), 
+                                    max(surveyDF$anos_escolaridad, na.rm = TRUE), by = 1)) +
+    scale_fill_discrete("Armutskategorie",
+                        breaks = c("1", "2", "3", "4", "5"), 
+                        labels = c("extreme Armut\t", "gemilderte Armut\t", 
+                                "anfällige Armut aufgrund niedrigem Einkommen",
+                                "anfällige Armut aufgrund Sozialmangel", 
+                                "keine Armut")) +
+    theme(#plot.title = element_text(size = 28, face = "bold"),
+          axis.line.x = element_line(color = "black", size = 0.5),
+          axis.line.y = element_line(color = "black", size = 0.5),
+          axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0)),
+          axis.text.y = element_text(size = 20, margin = margin(t = 0, r = 0, b = 0, l = 10)),
+          axis.title.x = element_text(size = 24, face = "bold"),
+          #axis.title.x = element_blank(),
+          axis.title.y = element_text(size = 24, face = "bold"),
+          axis.ticks.length = unit(.25, "cm"),
+          axis.ticks = element_line(colour = "black"),
+          legend.title = element_blank(),
+          legend.margin = margin(c(0,10,0,0)),
+          legend.text = element_text(size = 18),
+          legend.position = "bottom",
+          legend.background = element_blank(),
+          legend.box.background = element_rect(colour = "black"),
+          legend.box.margin = margin(c(5,0,5,0)),
+          legend.key.width = unit(1.5,"line"),
+          legend.key.height = unit(2,"line"),
+          strip.text = element_text(colour = "black", size = 16)) +
+    guides(fill = guide_legend(nrow = 2)) +
+    facet_grid(ic_rezedu ~ ., labeller = as_labeller(c('Nein' = 'Keine Verzögerung',
+                                                       'Ja' = 'Mit Verzögerung'))) 
 
-ggsave(plot = abb64, filename = "Abbildung_6_4.pdf", width = 297, height = 210, units = "mm")
+#ggsave(plot = abb64, filename = "Abbildung_6_4.pdf", width = 297, height = 210, units = "mm")
 
 # Armutskategorie nach Wohnort
 abb65a <- ggplot(data = surveyDF, aes(x = rururb, fill = cuadrantes)) +
-            geom_histogram(stat = 'count', position = 'fill') +
-            theme_light() +
-            labs(#title = "C.5 Armutskategorie nach Wohnort",
-                 y = "Anteil der Beobachtung je Wohnort",
-                 x = " ") +
-            scale_fill_discrete(labels = c("extreme Armut\t", "gemilderte Armut\t", 
-                                        "anfällige Armut aufgrund niedrigem Einkommen",
-                                        "anfällige Armut aufgrund Sozialmangel", 
-                                        "keine Armut")) +
-            # scale_x_discrete(breaks = c("0", "1"), 
-            #                  labels = c("städtisch", "ländlich"),
-            #                  limits = c("1", "0")) +
-            scale_y_continuous(labels = scales::percent_format()) +
-            theme(#plot.title = element_text(size = 28, face = "bold"),
-                  axis.line.x = element_line(color = "black", size = 0.5),
-                  axis.line.y = element_line(color = "black", size = 0.5),
-                  axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0)),
-                  axis.text.y = element_text(size = 20, margin = margin(t = 0, r = 0, b = 0, l = 10)),
-                  #axis.title.x = element_text(size = 24, face = "bold"),
-                  axis.ticks.length = unit(.25, "cm"),
-                  axis.ticks = element_line(colour = "black"),
-                  axis.title.x = element_blank(),
-                  axis.title.y = element_text(size = 24, face = "bold"),
-                  legend.title = element_blank(),
-                  legend.margin = margin(c(0,10,0,0)),
-                  legend.text = element_text(size = 18),
-                  legend.position = "bottom",
-                  legend.background = element_blank(),
-                  legend.box.background = element_rect(colour = "black"),
-                  legend.box.margin = margin(c(5,0,5,0)),
-                  legend.key.width = unit(1.5,"line"),
-                  legend.key.height = unit(2,"line"),
-                  strip.text = element_text(colour = "black", size = 16)) +
-            guides(fill = guide_legend(nrow = 2)) 
+    geom_histogram(stat = 'count', position = 'fill') +
+    theme_light() +
+    labs(#title = "C.5 Armutskategorie nach Wohnort",
+         y = "Anteil der Beobachtung je Wohnort",
+         x = " ") +
+    scale_fill_discrete(labels = c("extreme Armut\t", "gemilderte Armut\t", 
+                                "anfällige Armut aufgrund niedrigem Einkommen",
+                                "anfällige Armut aufgrund Sozialmangel", 
+                                "keine Armut")) +
+    # scale_x_discrete(breaks = c("0", "1"), 
+    #                  labels = c("städtisch", "ländlich"),
+    #                  limits = c("1", "0")) +
+    scale_y_continuous(labels = scales::percent_format()) +
+    theme(#plot.title = element_text(size = 28, face = "bold"),
+          axis.line.x = element_line(color = "black", size = 0.5),
+          axis.line.y = element_line(color = "black", size = 0.5),
+          axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0)),
+          axis.text.y = element_text(size = 20, margin = margin(t = 0, r = 0, b = 0, l = 10)),
+          #axis.title.x = element_text(size = 24, face = "bold"),
+          axis.ticks.length = unit(.25, "cm"),
+          axis.ticks = element_line(colour = "black"),
+          axis.title.x = element_blank(),
+          axis.title.y = element_text(size = 24, face = "bold"),
+          legend.title = element_blank(),
+          legend.margin = margin(c(0,10,0,0)),
+          legend.text = element_text(size = 18),
+          legend.position = "bottom",
+          legend.background = element_blank(),
+          legend.box.background = element_rect(colour = "black"),
+          legend.box.margin = margin(c(5,0,5,0)),
+          legend.key.width = unit(1.5,"line"),
+          legend.key.height = unit(2,"line"),
+          strip.text = element_text(colour = "black", size = 16)) +
+    guides(fill = guide_legend(nrow = 2)) 
 
-ggsave(plot = abb65a, filename = "Abbildung_6_5a.pdf", width = 297, height = 210, units = "mm")
+#ggsave(plot = abb65a, filename = "Abbildung_6_5a.pdf", width = 297, height = 210, units = "mm")
 
 # Armutskategorie nach Wohnortgröße
 abb65b <- ggplot(data = surveyDF, aes(x = tam_loc, fill = cuadrantes)) +
-            geom_histogram(stat = 'count', position = 'fill') +
-            theme_light() +
-            labs(#title = "C.6 Armutskategorie nach Einwohnerzahl des Wohnorts",
-                 y = "Anteil der Beobachtung je Wohnortgröße",
-                 x = " ") +
-            scale_fill_discrete(labels = c("extreme Armut\t", "gemilderte Armut\t", 
-                                        "anfällige Armut aufgrund niedrigem Einkommen",
-                                        "anfällige Armut aufgrund Sozialmangel", 
-                                        "keine Armut")) +
-            scale_x_discrete(limits = c("weniger als 2.500", "2.500 bis 14.999",
-                                           "15.000 bis 99.999", "mehr als 100.000")) +
-            scale_y_continuous(labels = scales::percent_format()) +
-            theme(#plot.title = element_text(size = 28, face = "bold"),
-                  axis.line.x = element_line(color = "black", size = 0.5),
-                  axis.line.y = element_line(color = "black", size = 0.5),
-                  axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0)),
-                  axis.text.y = element_text(size = 20, margin = margin(t = 0, r = 0, b = 0, l = 10)),
-                  #axis.title.x = element_text(size = 24, face = "bold"),
-                  axis.title.x = element_blank(),
-                  axis.title.y = element_text(size = 24, face = "bold"),
-                  axis.ticks.length = unit(.25, "cm"),
-                  axis.ticks = element_line(colour = "black"),
-                  legend.title = element_blank(),
-                  legend.margin = margin(c(0,10,0,0)),
-                  legend.text = element_text(size = 18),
-                  legend.position = "bottom",
-                  legend.background = element_blank(),
-                  legend.box.background = element_rect(colour = "black"),
-                  legend.box.margin = margin(c(5,0,5,0)),
-                  legend.key.width = unit(1.5,"line"),
-                  legend.key.height = unit(2,"line"),
-                  strip.text = element_text(colour = "black", size = 16)) +
-            guides(fill = guide_legend(nrow = 2)) +
-            facet_grid(rururb ~ .)
+    geom_histogram(stat = 'count', position = 'fill') +
+    theme_light() +
+    labs(#title = "C.6 Armutskategorie nach Einwohnerzahl des Wohnorts",
+         y = "Anteil der Beobachtung je Wohnortgröße",
+         x = " ") +
+    scale_fill_discrete(labels = c("extreme Armut\t", "gemilderte Armut\t", 
+                                "anfällige Armut aufgrund niedrigem Einkommen",
+                                "anfällige Armut aufgrund Sozialmangel", 
+                                "keine Armut")) +
+    scale_x_discrete(limits = c("weniger als 2.500", "2.500 bis 14.999",
+                                   "15.000 bis 99.999", "mehr als 100.000")) +
+    scale_y_continuous(labels = scales::percent_format()) +
+    theme(#plot.title = element_text(size = 28, face = "bold"),
+          axis.line.x = element_line(color = "black", size = 0.5),
+          axis.line.y = element_line(color = "black", size = 0.5),
+          axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0)),
+          axis.text.y = element_text(size = 20, margin = margin(t = 0, r = 0, b = 0, l = 10)),
+          #axis.title.x = element_text(size = 24, face = "bold"),
+          axis.title.x = element_blank(),
+          axis.title.y = element_text(size = 24, face = "bold"),
+          axis.ticks.length = unit(.25, "cm"),
+          axis.ticks = element_line(colour = "black"),
+          legend.title = element_blank(),
+          legend.margin = margin(c(0,10,0,0)),
+          legend.text = element_text(size = 18),
+          legend.position = "bottom",
+          legend.background = element_blank(),
+          legend.box.background = element_rect(colour = "black"),
+          legend.box.margin = margin(c(5,0,5,0)),
+          legend.key.width = unit(1.5,"line"),
+          legend.key.height = unit(2,"line"),
+          strip.text = element_text(colour = "black", size = 16)) +
+    guides(fill = guide_legend(nrow = 2)) +
+    facet_grid(rururb ~ .)
 
-ggsave(plot = abb65b, filename = "Abbildung_6_5b.pdf", width = 297, height = 210, units = "mm")
+#ggsave(plot = abb65b, filename = "Abbildung_6_5b.pdf", width = 297, height = 210, units = "mm")
 
 # Verteilung parentsco
 abb66a <- ggplot(data = surveyDF, aes(x = parentesco, fill = cuadrantes)) +
-            geom_bar(position = 'stack', width = 0.75) +
-            theme_light() +
-            labs(y = "Anzahl der Beobachtung") +
-            scale_fill_discrete("Armutskategorie",
-                                labels = c("extreme Armut\t", "gemilderte Armut\t", 
-                                        "anfällige Armut aufgrund niedrigem Einkommen",
-                                        "anfällige Armut aufgrund Sozialmangel", 
-                                        "keine Armut")) +
-            theme(#plot.title = element_text(size = 28, face = "bold"),
-                  axis.line.x = element_line(color = "black", size = 0.5),
-                  axis.line.y = element_line(color = "black", size = 0.5),
-                  axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0)),
-                  axis.text.y = element_text(size = 20, margin = margin(t = 0, r = 0, b = 0, l = 10)),
-                  #axis.title.x = element_text(size = 24, face = "bold"),
-                  axis.title.x = element_blank(),
-                  axis.title.y = element_text(size = 24, face = "bold"),
-                  axis.ticks.length = unit(.25, "cm"),
-                  axis.ticks = element_line(colour = "black"),
-                  legend.title = element_blank(),
-                  legend.margin = margin(c(0,10,0,0)),
-                  legend.text = element_text(size = 18),
-                  legend.position = "bottom",
-                  legend.background = element_blank(),
-                  legend.box.background = element_rect(colour = "black"),
-                  legend.box.margin = margin(c(5,0,5,0)),
-                  legend.key.width = unit(1.5,"line"),
-                  legend.key.height = unit(2,"line")) +
-            guides(fill = guide_legend(nrow = 2)) 
+    geom_bar(position = 'stack', width = 0.75) +
+    theme_light() +
+    labs(y = "Anzahl der Beobachtung") +
+    scale_fill_discrete("Armutskategorie",
+                        labels = c("extreme Armut\t", "gemilderte Armut\t", 
+                                "anfällige Armut aufgrund niedrigem Einkommen",
+                                "anfällige Armut aufgrund Sozialmangel", 
+                                "keine Armut")) +
+    theme(#plot.title = element_text(size = 28, face = "bold"),
+          axis.line.x = element_line(color = "black", size = 0.5),
+          axis.line.y = element_line(color = "black", size = 0.5),
+          axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0)),
+          axis.text.y = element_text(size = 20, margin = margin(t = 0, r = 0, b = 0, l = 10)),
+          #axis.title.x = element_text(size = 24, face = "bold"),
+          axis.title.x = element_blank(),
+          axis.title.y = element_text(size = 24, face = "bold"),
+          axis.ticks.length = unit(.25, "cm"),
+          axis.ticks = element_line(colour = "black"),
+          legend.title = element_blank(),
+          legend.margin = margin(c(0,10,0,0)),
+          legend.text = element_text(size = 18),
+          legend.position = "bottom",
+          legend.background = element_blank(),
+          legend.box.background = element_rect(colour = "black"),
+          legend.box.margin = margin(c(5,0,5,0)),
+          legend.key.width = unit(1.5,"line"),
+          legend.key.height = unit(2,"line")) +
+    guides(fill = guide_legend(nrow = 2)) 
 
-ggsave(plot = abb66a, filename = "Abbildung_6_6a.pdf", width = 297, height = 210, units = "mm")
+#ggsave(plot = abb66a, filename = "Abbildung_6_6a.pdf", width = 297, height = 210, units = "mm")
 
-surveyDF <- surveyDF %>% mutate(parentesco = case_when(
-        parentesco %in% c(101,201,301) ~ as.numeric(as.character(surveyDF$parentesco)),
+listDF <- c("surveyDF", "censusDF")
+
+for (i in c(1,2)) {
+    
+    df <- list(surveyDF, censusDF)[[i]]
+    
+    df <- df %>% mutate(parentesco = case_when(
+        parentesco %in% c(101,201,301) ~ as.numeric(as.character(df$parentesco)),
         TRUE ~ as.numeric(999)
+        )
     )
-)
-surveyDF$parentesco <- factor(surveyDF$parentesco)
+    df$parentesco <- factor(df$parentesco)
+    
+    assign(listDF[i], df , envir = .GlobalEnv)
+}
+
+rm(df)
+rm(listDF)
+rm(i)
 
 abb66b <- ggplot(data = surveyDF, aes(x = parentesco, fill = cuadrantes)) +
+    geom_bar(position = 'stack', width = 0.75) +
+    theme_light() +
+    labs(y = "Anzahl der Beobachtung") +
+    scale_fill_discrete("Armutskategorie",
+                        labels = c("extreme Armut\t", "gemilderte Armut\t", 
+                                "anfällige Armut aufgrund niedrigem Einkommen",
+                                "anfällige Armut aufgrund Sozialmangel", 
+                                "keine Armut")) +
+    theme(#plot.title = element_text(size = 28, face = "bold"),
+          axis.line.x = element_line(color = "black", size = 0.5),
+          axis.line.y = element_line(color = "black", size = 0.5),
+          axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0)),
+          axis.text.y = element_text(size = 20, margin = margin(t = 0, r = 0, b = 0, l = 10)),
+          #axis.title.x = element_text(size = 24, face = "bold"),
+          axis.title.x = element_blank(),
+          axis.title.y = element_text(size = 24, face = "bold"),
+          axis.ticks.length = unit(.25, "cm"),
+          axis.ticks = element_line(colour = "black"),
+          legend.title = element_blank(),
+          legend.margin = margin(c(0,10,0,0)),
+          legend.text = element_text(size = 18),
+          legend.position = "bottom",
+          legend.background = element_blank(),
+          legend.box.background = element_rect(colour = "black"),
+          legend.box.margin = margin(c(5,0,5,0)),
+          legend.key.width = unit(1.5,"line"),
+          legend.key.height = unit(2,"line")) +
+    guides(fill = guide_legend(nrow = 2)) 
+
+#ggsave(plot = abb66b, filename = "Abbildung_6_6b.pdf", width = 297, height = 210, units = "mm")
+
+c9 <- ggplot(data = surveyDF, aes(x = ic_cv, fill = cuadrantes)) +
             geom_bar(position = 'stack', width = 0.75) +
             theme_light() +
             labs(y = "Anzahl der Beobachtung") +
@@ -421,41 +473,7 @@ abb66b <- ggplot(data = surveyDF, aes(x = parentesco, fill = cuadrantes)) +
                   legend.key.height = unit(2,"line")) +
             guides(fill = guide_legend(nrow = 2)) 
 
-ggsave(plot = abb66b, filename = "Abbildung_6_6b.pdf", width = 297, height = 210, units = "mm")
-
-c9 <- ggplot(data = surveyDF, aes(x = c_ocupa, fill = cuadrantes)) +
-            geom_bar(position = 'stack', width = 0.75) +
-            theme_light() +
-            labs(y = "Anzahl der Beobachtung") +
-            scale_fill_discrete("Armutskategorie",
-                                labels = c("extreme Armut\t", "gemilderte Armut\t", 
-                                        "anfällige Armut aufgrund niedrigem Einkommen",
-                                        "anfällige Armut aufgrund Sozialmangel", 
-                                        "keine Armut")) +
-            theme(#plot.title = element_text(size = 28, face = "bold"),
-                  axis.line.x = element_line(color = "black", size = 0.5),
-                  axis.line.y = element_line(color = "black", size = 0.5),
-                  axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0)),
-                  axis.text.y = element_text(size = 20, margin = margin(t = 0, r = 0, b = 0, l = 10)),
-                  #axis.title.x = element_text(size = 24, face = "bold"),
-                  axis.title.x = element_blank(),
-                  axis.title.y = element_text(size = 24, face = "bold"),
-                  axis.ticks.length = unit(.25, "cm"),
-                  axis.ticks = element_line(colour = "black"),
-                  legend.title = element_blank(),
-                  legend.margin = margin(c(0,10,0,0)),
-                  legend.text = element_text(size = 18),
-                  legend.position = "bottom",
-                  legend.background = element_blank(),
-                  legend.box.background = element_rect(colour = "black"),
-                  legend.box.margin = margin(c(5,0,5,0)),
-                  legend.key.width = unit(1.5,"line"),
-                  legend.key.height = unit(2,"line")) +
-            guides(fill = guide_legend(nrow = 2)) 
-
-c9
-
-ggsave(plot = c9, filename = "C9.pdf", width = 297, height = 210, units = "mm")
+#ggsave(plot = c9, filename = "C9.pdf", width = 297, height = 210, units = "mm")
 ```
 
 ```{r Behandlung fehlender Werte, warning = FALSE}
@@ -501,9 +519,7 @@ all(!is.na(censusDF))
 ```
 
 ```{r Vorbereitung für Modellierung}
-
 # Datensatz in Trainings- und Testdatendatz splitten
-library(caTools)
 set.seed(123)
 split = sample.split(surveyDF$cuadrantes, SplitRatio = 0.75)
 surveyTrainDF = subset(surveyDF, split == TRUE)
@@ -511,15 +527,11 @@ surveyTestDF = subset(surveyDF, split == FALSE)
 rm(split)
 
 # Vorbereitung k-fache Kreuzvalidierung
-library(caret)
 set.seed(123)
 folds <- createFolds(surveyDF$cuadrantes, k = 10, list = TRUE, returnTrain = FALSE)
-
 ```
 
 ```{r Modellierung Multimomiale logistische Regression}
-library(nnet)
-
 # MLR k-fache Kreuzvalidierung
 #MLR_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
 MLR_RmVar <- data.frame(Fold = integer(), rmVar = integer())
@@ -563,7 +575,7 @@ MLR_Final_AIC <- step(MLR_Final, direction = 'backward', trace = 0)
 #paste(MLR_Final$vcoefnames[which(!(MLR_Final$vcoefnames %in% MLR_Final_AIC$vcoefnames))], collapse = " ")
 
 # MLR k-fache Kreuzvalidierung Vorhersage
-MLR_yPred <- predict(MLR_Final, newdata = surveyTestDF[-1])
+MLR_yPred <- predict(MLR_Final_AIC, newdata = surveyTestDF[-1])
 
 # MLR k-fache Kreuzvalidierung Confusion Matrix
 MLR_ConfMat = table(true = surveyTestDF[,1], pred = MLR_yPred)
@@ -574,56 +586,95 @@ MLR_Accuracy <- sum(diag(MLR_ConfMat))/sum(MLR_ConfMat)
 rm("i", "validID", "validDF", "trainID", "trainDF", "MLR_yPred")
 ```
 
+```{r Modellierung Linear SVM}
+# Parameteroptimierung linearer SVM
+linSVM_Tune <- tune.svm(cuadrantes ~ ., data = surveyTrainDF, 
+                        kernel = 'linear', cost = 10^c(-5:5))
+linSVM_Tune_Result <- data.frame(C = linSVM_Tune$performances[,1], 
+                                 Accuracy = 1 - linSVM_Tune$performances[,2])
 
-```{r Modellierung SVM}
-# install.packages("e1071")
-library(e1071)
+# Plot tune-Ergebnisse linearer SVM
+linSVM_tunePlot <- ggplot(linSVM_Tune_Result, aes(x = C, y = Accuracy)) +
+    geom_line(size = 1.1) +
+    theme_light() +
+    labs(x = "C", y = "Genauigkeit") +
+    scale_x_continuous(trans = 'log10') +
+    theme(axis.line.x = element_line(color = "black", size = 0.5),
+          axis.line.y = element_line(color = "black", size = 0.5),
+          axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0)),
+          axis.text.y = element_text(size = 20, margin = margin(t = 0, r = 0, b = 0, l = 10)),
+          #axis.title.x = element_text(size = 24, face = "bold"),
+          axis.title.x = element_blank(),
+          axis.title.y = element_text(size = 24, face = "bold"),
+          axis.ticks.length = unit(.25, "cm"),
+          axis.ticks = element_line(colour = "black"))
 
-# Parameteroptimierung SVM (Liner, RBF)
-linSVM_Tune <- tune.svm(cuadrantes ~ ., data = surveyTrainDF, kernel = 'linear', cost = 10^c(-3:3))
-linSVM_Tune_Result <- linSVM_Tune$performances[1,2]
-linSVM_Tune_Result$
+ggsave(plot = linSVM_tunePlot, filename = "Abbildung_6_8.pdf", width = 297, height = 210, units = "mm")
 
-RBFSVM_Tune <- tune.svm(cuadrantes ~ ., data = surveyTrainDF, 
-                 gamma = 10^(c(-3:3)), 
-                 cost = 10^(c(-3:3)))
-
-# Plot tune-Ergebnisse
-linSVM_tunePlot <- ggplot(tuneResult, aes(x = factor(gamma), y = factor(cost))) + geom_tile(aes(fill = Genauigkeit), color = "white") +
-    geom_text(aes(label = round(Genauigkeit,3))) +
-    scale_fill_gradient(low = "skyblue", high = "steelblue") +
-    labs(x = "Gamma", y = "Cost")
-
-RBFSVM_tunePlot <- ggplot(tuneResult, aes(x = factor(gamma), y = factor(cost))) + geom_tile(aes(fill = Genauigkeit), color = "white") +
-    geom_text(aes(label = round(Genauigkeit,3))) +
-    scale_fill_gradient(low = "skyblue", high = "steelblue") +
-    labs(x = "Gamma", y = "Cost")
-
-# Trainiere SVM (Linear, RBF)
+# Trainiere linearer SVM
 linSVM_Modell <- svm(cuadrantes ~ .,
               data = surveyTrainDF,
               type = "C-classification",
               kernel = "linear", 
               cost = linSVM_Tune$best.parameters$cost)
 
+# Vorhersage linearer SVM
+linSVM_yPred = predict(linSVM_Modell, newdata = surveyTestDF[-1])
+
+# Confusion Matrix linearer SVM
+linSVM_ConfMat <- table(true = surveyTestDF[,1], pred = linSVM_yPred)
+
+# Genauigkeit linearer SVM
+linSVM_Accuracy <- sum(diag(linSVM_ConfMat))/sum(linSVM_ConfMat)
+```
+
+```{r Modellierung RBF SVM}
+# Parameteroptimierung RBF SVM
+RBFSVM_Tune <- tune.svm(cuadrantes ~ ., data = surveyTrainDF, 
+                 gamma = 10^(c(-6:3)), 
+                 cost = 10^(c(7:8)))
+
+RBFSVM_Tune_Result <- data.frame(Gamma = RBFSVM_Tune$performances[,1],
+                                 C = RBFSVM_Tune$performances[,2], 
+                                 Accuracy = 1 - RBFSVM_Tune$performances[,3])
+
+# Plot tune-Ergebnisse
+RBFSVM_tunePlot <- ggplot(RBFSVM_Tune_Result, 
+                          aes(x = Gamma, y = C)) +
+    geom_tile(aes(fill = Accuracy), color = "white") +
+    geom_text(aes(label = round(Accuracy,3))) +
+    scale_fill_gradient(low = "skyblue", high = "steelblue") +
+    labs(x = "Gamma", y = "Cost") +
+    scale_x_continuous(trans = 'log10', expand = c(0,0)) +
+    scale_y_continuous(trans = 'log10', expand = c(0,0)) +
+    theme(axis.line.x = element_line(color = "black", size = 0.5),
+          axis.line.y = element_line(color = "black", size = 0.5),
+          axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0)),
+          axis.text.y = element_text(size = 20, margin = margin(t = 0, r = 0, b = 0, l = 10)),
+          axis.title.x = element_text(size = 24, face = "bold"),
+          axis.title.y = element_text(size = 24, face = "bold"),
+          axis.ticks.length = unit(.25, "cm"),
+          axis.ticks = element_line(colour = "black"))
+
+ggsave(plot = RBFSVM_tunePlot, filename = "Abbildung_6_9.pdf", width = 297, height = 210, units = "mm")
+
+# Trainiere RBF SVM
 RBFSVM_Modell <- svm(cuadrantes ~ .,
               data = surveyTrainDF,
               type = "C-classification",
               kernel = "radial", 
-              gamma = 1, 
-              cost = 1)
+              gamma = RBFSVM_Tune$best.parameters$gamma, 
+              cost = RBFSVM_Tune$best.parameters$cost)
 
-# Vorhersage SVM (Linear, RBF)
-linSVM_yPred = predict(linSVM_Modell, newdata = surveyTestDF[-1])
-RBFSVM_yPred
+# Vorhersage RBF SVM
+RBFSVM_yPred = predict(linSVM_Modell, newdata = surveyTestDF[-1])
 
-# SVM Confusion Matrix (Linear, RBF)
-linSVM_ConfMat <- table(true = surveyTestDF[,1], pred = linSVM_yPred)
+
+# Confusion Matrix RBF SVM
 RBFSVM_ConfMat = table(true = surveyTestDF[,1], pred = RBFSVM_yPred)
 
-# SVM Genauigkeit (Linear, Polynomial, RBF, Sigmoid)
-linSVM_Accuracy <- sum(diag(linSVM_ConfMat))/sum(linSVM_ConfMat)
-RBFSVM_Accuracy <- sum(diag(SVM_ConfMat))/sum(SVM_ConfMat)
+# Genauigkeit RBF SVM
+RBFSVM_Accuracy <- sum(diag(RBFSVM_ConfMat))/sum(RBFSVM_ConfMat)
 ```
 
 ```{r Simulation Szenario 1}
@@ -632,8 +683,7 @@ trainDF <- popList[[1]]$smp
 validDF <- popList[[1]]$pop
 
 S1_linSVM_Tune <- tune.svm(y ~ X_1 + X_2, data = trainDF, kernel = 'linear',
-             gamma = 10^(c(-3:3)),
-             cost = 10^(c(-3:3)))
+             cost = 10^(c(-5:5)))
 
 S1_RBFSVM_Tune <- tune.svm(y ~ X_1 + X_2, data = trainDF,
              gamma = 10^(c(-3:3)),
@@ -644,9 +694,9 @@ S1_MLR_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
 S1_linSVM_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
 S1_RBFSVM_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
 
-S1_MLR_RmVar <- data.frame(Fold = integer(), rmVar = integer())
-S1_linSVM_RmVar <- data.frame(Fold = integer(), rmVar = integer())
-S1_RBFSVM_RmVar <- data.frame(Fold = integer(), rmVar = integer())
+# S1_MLR_RmVar <- data.frame(Fold = integer(), rmVar = integer())
+# S1_linSVM_RmVar <- data.frame(Fold = integer(), rmVar = integer())
+# S1_RBFSVM_RmVar <- data.frame(Fold = integer(), rmVar = integer())
 
 S1_MLR_ConfMat <- list()
 S1_linSVM_ConfMat <- list()
@@ -659,56 +709,69 @@ for (i in c(1:simRuns)) {
     
     # MLR Trainieren
     S1_MLR_FULL <- multinom(y ~ X_1 + X_2, data = trainDF)
-    S1_MLR_AIC <- step(MLR_FULL, direction = 'backward', trace = 0)
-        
+    S1_MLR_AIC <- step(S1_MLR_FULL, direction = 'backward', trace = 0)
     # MLR Vorhersagen
-    S1_MLR_yPred <- predict(MLR_AIC, newdata = validDF[-1])
-    
+    S1_MLR_yPred <- predict(S1_MLR_AIC, newdata = validDF[-1])
     # MLR Confusion Matrix
-    S1_MLR_ConfMat = table(true = validDF[,1], pred = MLR_yPred)
-    
+    S1_MLR_ConfMat = table(true = validDF[,1], pred = S1_MLR_yPred)
     # MLR Genauigkeit
-    S1_MLR_Accuracy[i,] <- c(i, sum(diag(MLR_ConfMat))/sum(MLR_ConfMat))
+    S1_MLR_Accuracy[i,] <- c(i, sum(diag(S1_MLR_ConfMat))/sum(S1_MLR_ConfMat))
     
     # linSVM Trainieren
-    classifierSVM <- svm(y ~ .,
+    S1_linSVM_Modell <- svm(y ~ .,
                   data = trainDF,
                   type = "C-classification",
-                  kernel = "radial"
-                  , gamma = 0.1, 
-                  cost = 10)
-    
+                  kernel = "radial",
+                  cost = S1_linSVM_Tune$best.parameters$cost)
     # linSVM Vorhersage
-    y_pred_SVM = predict(classifierSVM, newdata = validDF[-1])
-    
+    S1_linSVM_yPred = predict(S1_linSVM_Modell, newdata = validDF[-1])
     # linSVM Confusion Matrix
-    confMat_SVM = table(true = validDF[,1], pred = y_pred_SVM)
-    
+    S1_linSVM_ConfMat = table(true = validDF[,1], pred = S1_linSVM_yPred)
     # linSVM Genauigkeit
-    SVM_Accuracy[i,] <- c(i,sum(diag(confMat_SVM))/sum(confMat_SVM))
+    S1_linSVM_Accuracy[i,] <- c(i,sum(diag(S1_linSVM_ConfMat))/sum(S1_linSVM_ConfMat))
     
     # RBFSVM Trainieren
-    classifierSVM <- svm(y ~ .,
+    S1_RBFSVM_Modell <- svm(y ~ .,
                   data = trainDF,
                   type = "C-classification",
-                  kernel = "radial"
-                  , gamma = 0.1, 
-                  cost = 10)
-    
+                  kernel = "radial",
+                  gamma = S1_RBFSVM_Tune$best.parameters$gamma, 
+                  cost = S1_RBFSVM_Tune$best.parameters$cost)
     # RBFSVM Vorhersage
-    y_pred_SVM = predict(classifierSVM, newdata = validDF[-1])
-    
+    S1_RBFSVM_yPred = predict(S1_RBFSVM_Modell, newdata = validDF[-1])
     # RBFSVM Confusion Matrix
-    confMat_SVM = table(true = validDF[,1], pred = y_pred_SVM)
-    
+    S1_RBFSVM_ConfMat = table(true = validDF[,1], pred = S1_RBFSVM_yPred)
     # RBFSVM Genauigkeit
-    SVM_Accuracy[i,] <- c(i,sum(diag(confMat_SVM))/sum(confMat_SVM))
+    S1_RBFSVM_Accuracy[i,] <- c(i,sum(diag(S1_RBFSVM_ConfMat))/sum(S1_RBFSVM_ConfMat))
    
 }
 
-#warning()
+S1_Accuracy <- data.frame(Accuracy = c(S1_MLR_Accuracy$Accuracy,
+                                       S1_linSVM_Accuracy$Accuracy,
+                                       S1_RBFSVM_Accuracy$Accuracy),
+                          ID = c(rep("MLR", 100), 
+                                 rep("linSVM", 100), 
+                                 rep("RBFSVM", 100)))
 
-boxplot(MLR_Accuracy$Accuracy, SVM_Accuracy$Accuracy)
+abb610 <- ggplot(S1_Accuracy, aes(x = ID, y = Accuracy, color = ID)) + 
+    geom_boxplot() +
+    theme_light() +
+    scale_x_discrete(limits = c('MLR', 'linSVM', 'RBFSVM')) +
+    #scale_y_continuous(limits = c(min(S2_Accuracy$Accuracy), max(S2_Accuracy$Accuracy))) +
+    scale_color_discrete(guide = FALSE) +
+    theme(#plot.title = element_text(size = 28, face = "bold"),
+          axis.line.x = element_line(color = "black", size = 0.5),
+          axis.line.y = element_line(color = "black", size = 0.5),
+          axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0)),
+          axis.text.y = element_text(size = 20, margin = margin(t = 0, r = 0, b = 0, l = 10)),
+          #axis.title.x = element_text(size = 24, face = "bold"),
+          axis.title.x = element_blank(),
+          axis.title.y = element_text(size = 24, face = "bold"),
+          axis.ticks.length = unit(.25, "cm"),
+          axis.ticks = element_line(colour = "black"),
+          legend.title = element_blank())
+
+ggsave(plot = abb610, filename = "Abbildung_6_10.pdf", width = 297, height = 210, units = "mm")
 ```
 
 
@@ -719,68 +782,135 @@ load("/Users/XuanSon/Desktop/complexSimData.Rdata")
 trainDF <- popList[[1]]$smp
 validDF <- popList[[1]]$pop
 
-trainDF$X_5 <- as.factor(popList[[1]]$smp$X_5)
-trainDF$X_6 <- as.factor(popList[[1]]$smp$X_6)
-validDF$X_5 <- as.factor(popList[[1]]$pop$X_5)
-validDF$X_6 <- as.factor(popList[[1]]$pop$X_6)
+S2_linSVM_Tune <- tune.svm(y ~ . - intecept , data = trainDF, kernel = 'linear',
+             cost = 10^(c(-5:5)))
 
-S2_tuneLinSVM <- tune.svm(y ~ X_1 + X_2 + X_3 + X_4 + X_5 + X_6, data = trainDF, kernel = 'linear',
+S2_RBFSVM_Tune <- tune.svm(y ~ . - intecept, data = trainDF,
              gamma = 10^(c(-3:3)),
              cost = 10^(c(-3:3)))
 
-S2_tuneRBFSVM <- tune.svm(y ~ X_1 + X_2 + X_3 + X_4 + X_5 + X_6, data = trainDF,
+S2_polySVM_Tune <- tune.svm(y ~ . - intecept, data = trainDF, kernel = 'polynomial', 
              gamma = 10^(c(-3:3)),
-             cost = 10^(c(-3:3)))
+             coef0 = 10^(c(1:3)),
+             degree = 2:5,
+             cost = 10^(c(-3:3))
+             )
+
+S2_sigSVM_Tune <- tune.svm(y ~ . - intecept, data = trainDF,
+             gamma = 10^(c(-3:3)),
+             coef0 = 10^(c(1:3)),
+             cost = 10^(c(-3:3))
+             )
 
 # MLR und SVM für jedes Paar Sample - Population
 S2_MLR_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
-S2_Accuracy_linSVM <- data.frame(Fold = integer(), Accuracy = integer())
-S2_Accuracy_RBFSVM <- data.frame(Fold = integer(), Accuracy = integer())
+S2_linSVM_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
+S2_RBFSVM_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
+S2_polySVM_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
 
-for (i in c(1:simRuns)) {
+# S1_MLR_RmVar <- data.frame(Fold = integer(), rmVar = integer())
+# S1_linSVM_RmVar <- data.frame(Fold = integer(), rmVar = integer())
+# S1_RBFSVM_RmVar <- data.frame(Fold = integer(), rmVar = integer())
+
+S2_MLR_ConfMat <- list()
+S2_linSVM_ConfMat <- list()
+S2_RBFSVM_ConfMat <- list()
+S2_polySVM_ConfMat <- list()
+
+for (i in c(1:200)) {
+    # Trainings- und Validierungsdaten
     trainDF <- popList[[i]]$smp # Sample als Trainingsdaten
     validDF <- popList[[i]]$pop # Population als Validierungsdaten
     
-    trainDF$X_5 <- as.factor(popList[[1]]$smp$X_5)
-    trainDF$X_6 <- as.factor(popList[[1]]$smp$X_6)
-    validDF$X_5 <- as.factor(popList[[1]]$pop$X_5)
-    validDF$X_6 <- as.factor(popList[[1]]$pop$X_6)
+    trainDF[,c('y', 'X_5', 'X_6')] <- lapply(trainDF[,c('y', 'X_5', 'X_6')],
+                                             function(x) factor(x))
+    validDF[,c('y', 'X_5', 'X_6')] <- lapply(validDF[,c('y', 'X_5', 'X_6')],
+                                             function(x) factor(x))
     
-    # MLR
-    MLR_FULL <- multinom(y ~ ., data = trainDF)
-    MLR_AIC <- step(MLR_FULL, direction = 'backward', trace = 0)
-        
-    # MLR Vorhersage
-    MLR_yPred <- predict(MLR_AIC, newdata = validDF[-1])
-    
+    # MLR Trainieren
+    S2_MLR_FULL <- multinom(y ~ . - intecept, data = trainDF)
+    S2_MLR_AIC <- step(S2_MLR_FULL, direction = 'backward', trace = 0)
+    # MLR Vorhersagen
+    S2_MLR_yPred <- predict(S2_MLR_AIC, newdata = validDF[-1])
     # MLR Confusion Matrix
-    MLR_ConfMat = table(true = validDF[,1], pred = MLR_yPred)
-    
+    S2_MLR_ConfMat = table(true = validDF[,1], pred = S2_MLR_yPred)
     # MLR Genauigkeit
-    MLR_Accuracy[i,] <- c(i, sum(diag(MLR_ConfMat))/sum(MLR_ConfMat))
+    S2_MLR_Accuracy[i,] <- c(i, sum(diag(S2_MLR_ConfMat))/sum(S2_MLR_ConfMat))
     
-    # SVM
-    classifierSVM <- svm(y ~ .,
+    # linSVM Trainieren
+    S2_linSVM_Modell <- svm(y ~ . - intecept,
                   data = trainDF,
                   type = "C-classification",
-                  kernel = "radial"
-                  , gamma = 0.1, 
-                  cost = 10)
+                  kernel = "radial",
+                  cost = S2_linSVM_Tune$best.parameters$cost)
+    # linSVM Vorhersage
+    S2_linSVM_yPred = predict(S2_linSVM_Modell, newdata = validDF[-1])
+    # linSVM Confusion Matrix
+    S2_linSVM_ConfMat = table(true = validDF[,1], pred = S2_linSVM_yPred)
+    # linSVM Genauigkeit
+    S2_linSVM_Accuracy[i,] <- c(i,sum(diag(S2_linSVM_ConfMat))/sum(S2_linSVM_ConfMat))
     
-    # SVM Vorhersage
-    y_pred_SVM = predict(classifierSVM, newdata = validDF[-1])
-    
-    # SVM Confusion Matrix
-    confMat_SVM = table(true = validDF[,1], pred = y_pred_SVM)
-    
-    # SVM Genauigkeit
-    SVM_Accuracy[i,] <- c(i,sum(diag(confMat_SVM))/sum(confMat_SVM))
+    # RBFSVM Trainieren
+    S2_RBFSVM_Modell <- svm(y ~ . - intecept,
+                  data = trainDF,
+                  type = "C-classification",
+                  kernel = "radial",
+                  gamma = S2_RBFSVM_Tune$best.parameters$gamma, 
+                  cost = S2_RBFSVM_Tune$best.parameters$cost)
+    # RBFSVM Vorhersage
+    S2_RBFSVM_yPred = predict(S2_RBFSVM_Modell, newdata = validDF[-1])
+    # RBFSVM Confusion Matrix
+    S2_RBFSVM_ConfMat = table(true = validDF[,1], pred = S2_RBFSVM_yPred)
+    # RBFSVM Genauigkeit
+    S2_RBFSVM_Accuracy[i,] <- c(i,sum(diag(S2_RBFSVM_ConfMat))/sum(S2_RBFSVM_ConfMat))
    
+    # polySVM Trainieren
+    S2_polySVM_Modell <- svm(y ~ . - intecept,
+                  data = trainDF,
+                  type = "C-classification",
+                  kernel = "radial",
+                  degree = S2_polySVM_Tune$best.parameters$degree, 
+                  cost = S2_polySVM_Tune$best.parameters$cost,
+                  gamma = S2_polySVM_Tune$best.parameters$gamma,
+                  coef0 = S2_polySVM_Tune$best.parameters$coef0)
+    # polySVM Vorhersage
+    S2_polySVM_yPred = predict(S2_polySVM_Modell, newdata = validDF[-1])
+    # polySVM Confusion Matrix
+    S2_polySVM_ConfMat = table(true = validDF[,1], pred = S2_polySVM_yPred)
+    # polySVM Genauigkeit
+    S2_polySVM_Accuracy[i,] <- c(i,sum(diag(S2_polySVM_ConfMat))/sum(S2_polySVM_ConfMat))
 }
 
-#warning()
+S2_Accuracy <- data.frame(Accuracy = c(S2_MLR_Accuracy$Accuracy,
+                                       S2_linSVM_Accuracy$Accuracy,
+                                       S2_polySVM_Accuracy$Accuracy,
+                                       S2_RBFSVM_Accuracy$Accuracy),
+                          ID = c(rep("MLR", 200), 
+                                 rep("linSVM", 200),
+                                 rep("polySVM", 200),
+                                 rep("RBFSVM", 200)))
 
-boxplot(MLR_Accuracy$Accuracy, SVM_Accuracy$Accuracy)
+S2_Accuracy[which(S2_Accuracy$ID == 'polySVM'),1] == S2_Accuracy[which(S2_Accuracy$ID == 'RBFSVM'),1]
+
+abb611 <- ggplot(S2_Accuracy, aes(x = ID, y = Accuracy, color = ID)) + 
+    geom_boxplot() +
+    theme_light() +
+    scale_x_discrete(limits = c('MLR', 'linSVM', 'polySVM', 'RBFSVM')) +
+    #scale_y_continuous(limits = c(min(S2_Accuracy$Accuracy), max(S2_Accuracy$Accuracy))) +
+    scale_color_discrete(guide = FALSE) +
+    theme(#plot.title = element_text(size = 28, face = "bold"),
+          axis.line.x = element_line(color = "black", size = 0.5),
+          axis.line.y = element_line(color = "black", size = 0.5),
+          axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0)),
+          axis.text.y = element_text(size = 20, margin = margin(t = 0, r = 0, b = 0, l = 10)),
+          #axis.title.x = element_text(size = 24, face = "bold"),
+          axis.title.x = element_blank(),
+          axis.title.y = element_text(size = 24, face = "bold"),
+          axis.ticks.length = unit(.25, "cm"),
+          axis.ticks = element_line(colour = "black"),
+          legend.title = element_blank())
+
+ggsave(plot = abb611, filename = "Abbildung_6_11.pdf", width = 297, height = 210, units = "mm")
 
 ```
 
