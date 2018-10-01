@@ -27,14 +27,15 @@ options(xtable.timestamp = "")
 
 ```{r Daten importieren, warning=FALSE}
 # CSV-Dateien einlesen
-censusDF <- read.csv('c.csv')[,-1] #Spalte 1 enthält nur Zeilennummer und wird entfernt
-surveyDF <- read.csv('s.csv')[,-1] #Spalte 1 enthält nur Zeilennummer und wird entfernt
+censusDF <- read.csv('C:/Users/lexuanson/Desktop/Xuan/estee/c.csv')[,-1] #Spalte 1 enthält nur Zeilennummer und wird entfernt
+surveyDF <- read.csv('C:/Users/lexuanson/Desktop/Xuan/estee/s.csv')[,-1] #Spalte 1 enthält nur Zeilennummer und wird entfernt
 
 # Nur gemeinsame erklärende Variablen werden behalten
 censusDF <- censusDF[,colnames(censusDF) %in% colnames(surveyDF)]
 surveyDF <- data.frame("cuadrantes" = surveyDF[,"cuadrantes"],
                        surveyDF[,colnames(surveyDF) %in% colnames(censusDF)])
 
+unique(surveyDF$mun)
 ```
 
 ```{r Datenverständnis & -manipulation, warning = FALSE}
@@ -569,16 +570,17 @@ MLR_RmVar # zu entfernende erklärende der k Iterationen
 #[, !(names(surveyDF) %in% c('sexo', 'habl_ind', 'parentesco'))]
 
 # Finale MLR in Testdaten anwenden
-MLR_Final <- multinom(cuadrantes ~ ., data = surveyDF)
+MLR_Final <- multinom(cuadrantes ~ ., data = surveyDF, maxit = 1000)
 MLR_Final_AIC <- step(MLR_Final, direction = 'backward', trace = 0)
 
-#paste(MLR_Final$vcoefnames[which(!(MLR_Final$vcoefnames %in% MLR_Final_AIC$vcoefnames))], collapse = " ")
+paste(MLR_Final$vcoefnames[which(!(MLR_Final$vcoefnames %in% MLR_Final_AIC$vcoefnames))], collapse = " ")
 
 # MLR k-fache Kreuzvalidierung Vorhersage
 MLR_yPred <- predict(MLR_Final_AIC, newdata = surveyTestDF[-1])
 
 # MLR k-fache Kreuzvalidierung Confusion Matrix
 MLR_ConfMat = table(true = surveyTestDF[,1], pred = MLR_yPred)
+#xtable(MLR_ConfMat)
 
 # MLR k-fache Kreuzvalidierung Genauigkeit
 MLR_Accuracy <- sum(diag(MLR_ConfMat))/sum(MLR_ConfMat)

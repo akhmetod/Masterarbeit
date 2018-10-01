@@ -1,0 +1,101 @@
+library(rgeos)
+setwd(dir = "c:/Users/spannier/Downloads/MEX_adm/")
+library(maptools)
+readShapeSpatial(fn = "MEX_adm0")
+mexmap <- readShapeSpatial(fn = "MEX_adm0")
+setwd("I:/FUSTAT/Schulungen/160811_R-Fortgeschrittene_fertig")
+setwd("Datensaetze_Website")
+cardata <- read.csv2("Cardata.csv")
+names(cardata)	#Variablennamen
+head(cardata)	#Datensatzauschnitt
+summary(cardata)#Zusammenfassung
+attach(cardata) #Datensatz anhängen
+table(car)		#Verteilung abhängige Var
+hist(income)	#Einkommen
+qqnorm(income)	#qqplot
+qqline(income)
+plot(prop.table(table(age)))#Stabdiagramm Alter
+table(sex)		#Geschlecht
+table(field)	#Studienfach
+#Deskriptiv Bivariat
+table(car, sex)	#Auto-Geschlecht
+table(car, field)#Auto-Studienfach
+tapply(income, car, mean)	#Vergleich mittleres Einkommen
+boxplot(income~car)			#Boxplot
+boxplot(age~car)			#Boxplot
+#Logit-Modell
+logit <- glm(car~income+age+sex+field,family=binomial)
+summary(logit)
+#Selbe Ergebnisse mit Auto T/F, statt String
+car1 <- car=="Auto-Besitzer"
+logit <- glm(car1~income+age+sex+field,family=binomial)
+summary(logit)
+contrasts(car)
+logit <- glm(I(car=="Auto-Besitzer")~income+age+sex+field,
+family=binomial)
+summary(logit)
+#Koeffizienten
+coef(logit)
+exp(coef(logit))
+round(exp(coef(logit)), 3)
+#Modellgüte
+logLik(logit)
+-2*logLik(logit)
+deviance(logit) #identisch mit -2ll für logit-Modell
+logit0 <- glm(I(car=="Auto-Besitzer")~1,family=binomial)
+deviance(logit0)
+anova(logit0, logit, test="Chi")
+-2*logLik(logit)+5*2
+AIC(logit)
+install.packages("descr")
+library(descr)
+LogRegR2(logit)
+plot(logit)
+predict(logit, type="link")
+predict(logit)
+summary(predict(logit, type="response"))
+vorher <- predict(logit) > 0.5
+vorher <- factor(vorher)
+vorher <- factor(vorher)
+vorher
+levels(vorher) <- c("kein Auto",
+"Auto-Besitzer")
+table(car, vorher)
+rm(list = ls())
+library(rgeos)
+library(maptools)
+setwd(dir = "c:/Users/spannier/Downloads/MEX_adm/")
+mexmap <- readShapeSpatial(fn = "MEX_adm0")
+mexmap
+plot(mexmap)
+mexmap1 <- readShapeSpatial(fn = "MEX_adm1")
+mexmap1 <- readShapeSpatial(fn = "MEX_adm1")
+plot(mexmap1)
+mexmap0 <- readShapeSpatial(fn = "MEX_adm0")
+plot(mexmap0)
+mexmap1 <- readShapeSpatial(fn = "MEX_adm1")
+plot(mexmap1)
+par(mfrow=c(2,2))
+mexmap0 <- readShapeSpatial(fn = "MEX_adm0")
+plot(mexmap0)
+mexmap1 <- readShapeSpatial(fn = "MEX_adm1")
+plot(mexmap1)
+mexmap2 <- readShapeSpatial(fn = "MEX_adm2")
+plot(mexmap2)
+mexmap3 <- readShapeSpatial(fn = "MEX_adm3")
+plot(mexmap3)
+mexmap4 <- readShapeSpatial(fn = "Municipios_2013_EDOMEX")
+plot(mexmap4)
+head(mexmap2@data)
+unique(mexmap2@data$NAME_1)
+mexmap2@data$NAME_1 == México
+mexmap2@data$NAME_1 == "México"
+plot(mexmap2[mexmap2@data$NAME_1 == "México",])
+par(mfrow=c(2,1))
+plot(mexmap2[mexmap2@data$NAME_1 == "México",])
+plot(mexmap3)
+mexmap3 <- readShapeSpatial(fn = "Municipios_2013_EDOMEX")
+plot(mexmap3)
+par(mfrow=c(1,2))
+plot(mexmap2[mexmap2@data$NAME_1 == "México",])
+plot(mexmap3)
