@@ -22,7 +22,7 @@ get_legend<-function(myggplot){
   return(legend)
 }
 
-Karte <- readShapePoly("C:/Users/lexuanson/Desktop/Xuan/estee/MEX_adm/MEX_adm2.shp")
+Karte <- readShapePoly("./MEX_adm/MEX_adm2.shp")
 #unique(Karte@data$NAME_1)
 Karte <- Karte[Karte@data$NAME_1 == "Guanajuato", ]
 plot(Karte)

@@ -27,15 +27,13 @@ options(xtable.timestamp = "")
 
 ```{r Daten importieren, warning=FALSE}
 # CSV-Dateien einlesen
-censusDF <- read.csv('C:/Users/lexuanson/Desktop/Xuan/estee/c.csv')[,-1] #Spalte 1 enthält nur Zeilennummer und wird entfernt
-surveyDF <- read.csv('C:/Users/lexuanson/Desktop/Xuan/estee/s.csv')[,-1] #Spalte 1 enthält nur Zeilennummer und wird entfernt
+censusDF <- read.csv('c.csv')[,-1] #Spalte 1 enthält nur Zeilennummer und wird entfernt
+surveyDF <- read.csv('s.csv')[,-1] #Spalte 1 enthält nur Zeilennummer und wird entfernt
 
 # Nur gemeinsame erklärende Variablen werden behalten
 censusDF <- censusDF[,colnames(censusDF) %in% colnames(surveyDF)]
 surveyDF <- data.frame("cuadrantes" = surveyDF[,"cuadrantes"],
                        surveyDF[,colnames(surveyDF) %in% colnames(censusDF)])
-
-unique(surveyDF$mun)
 ```
 
 ```{r Datenverständnis & -manipulation, warning = FALSE}
@@ -61,22 +59,18 @@ rm(missingCensus)
 censusDF <- censusDF[, !(colnames(censusDF) %in% missingRmVar[1:5,1])]
 surveyDF <- surveyDF[, !(colnames(surveyDF) %in% missingRmVar[1:5,1])]
 
-sort(names(surveyDF))
-
 # Hilfsvariablen werden entfernt
 hilfsvariablen <- c('est_dis', 'ent', 'factor', 'mun', 'upm')
 surveyDF <- surveyDF[ , !(names(surveyDF)  %in% hilfsvariablen)]
 censusDF <- censusDF[ , !(names(censusDF)  %in% hilfsvariablen)]
 rm(hilfsvariablen)
 
-# Variablen mit Near-Zero-Varianz werden entfernt
+# Variablen mit Near-Zero-Varianz
 zeroVar <- data.frame(surveyDF = nearZeroVar(surveyDF, name = TRUE), 
                       censusDF = nearZeroVar(censusDF, name = TRUE))
 
-#describe(as.factor(surveyDF$dhind_cy))
-
-surveyDF <- surveyDF %>% select(-c(nearZeroVar(surveyDF)))
-censusDF <- censusDF %>% select(-c(nearZeroVar(censusDF)))
+# surveyDF <- surveyDF %>% select(-c(nearZeroVar(surveyDF)))
+# censusDF <- censusDF %>% select(-c(nearZeroVar(censusDF)))
 
 # Transformation numerischer in kategorialer Variablen. Ausgenommen sind edad und anos_escolaridad, da sie metrisch skaliert sind.
 surveyDF$cuadrantes <- factor(surveyDF$cuadrantes, levels = c(1,2,3,4,5), 
@@ -87,8 +81,8 @@ surveyDF$cuadrantes <- factor(surveyDF$cuadrantes, levels = c(1,2,3,4,5),
 surveyDF$asis_esc <- surveyDF$asis_esc - 1 #Damit gleiche Werte mit Census Datei
 censusDF$sexo <- censusDF$sexo - 1 #Damit gleiche Werte mit Survey Datei
 
-names(surveyDF)[6] <- 'anos_escolaridad' #Umbenennung für richtige Zeichencodierung
-names(censusDF)[5] <- 'anos_escolaridad' #Umbenennung für richtige Zeichencodierung
+names(surveyDF)[7] <- 'anos_escolaridad' #Umbenennung für richtige Zeichencodierung
+names(censusDF)[6] <- 'anos_escolaridad' #Umbenennung für richtige Zeichencodierung
 
 listDF <- c("surveyDF", "censusDF")
 
@@ -98,13 +92,13 @@ for (i in c(1,2)) {
     
     df$parentesco <- factor(df$parentesco)
     df$sexo <- factor(df$sexo, levels = c(0,1), labels = c('Weiblich','Männlich'))
-    #df$habl_ind <- factor(df$habl_ind, levels = c(0,1), labels = c('Nein','Ja'))
+    df$habl_ind <- factor(df$habl_ind, levels = c(0,1), labels = c('Nein','Ja'))
     df$asis_esc <- factor(df$asis_esc, levels = c(0,1), labels = c('Nein','Ja'))
     df$pea <- factor(df$pea)
     df$c_ocupa <- factor(df$c_ocupa)
     df$sector_act <- factor(df$sector_act)
-    #df$jub <- factor(df$jub, levels = c(0,1), labels = c('Nein','Ja'))
-    #df$dhind_cy <- factor(df$dhind_cy, levels = c(0,1), labels = c('Nein','Ja'))
+    df$jub <- factor(df$jub, levels = c(0,1), labels = c('Nein','Ja'))
+    df$dhind_cy <- factor(df$dhind_cy, levels = c(0,1), labels = c('Nein','Ja'))
     df$dhind_parent <- factor(df$dhind_parent, levels = c(0,1), labels = c('Nein','Ja'))
     df$ic_rezedu <- factor(df$ic_rezedu, levels = c(0,1), labels = c('Nein','Ja'))
     df$ic_asalud <- factor(df$ic_asalud, levels = c(0,1), labels = c('Nein','Ja'))
@@ -120,6 +114,8 @@ for (i in c(1,2)) {
 rm(df)
 rm(listDF)
 rm(i)
+
+surveyDF <- surveyDF[ , - which(names(surveyDF) == "idD")]
 ```
 
 ```{r Diagramme, warning = FALSE}
@@ -399,7 +395,7 @@ for (i in c(1,2)) {
     df <- list(surveyDF, censusDF)[[i]]
     
     df <- df %>% mutate(parentesco = case_when(
-        parentesco %in% c(101,201,301) ~ as.numeric(as.character(df$parentesco)),
+        parentesco %in% c(101,102,201,301,609,617) ~ as.numeric(as.character(df$parentesco)),
         TRUE ~ as.numeric(999)
         )
     )
@@ -411,6 +407,8 @@ for (i in c(1,2)) {
 rm(df)
 rm(listDF)
 rm(i)
+
+describe(surveyDF$parentesco)
 
 abb66b <- ggplot(data = surveyDF, aes(x = parentesco, fill = cuadrantes)) +
     geom_bar(position = 'stack', width = 0.75) +
@@ -444,35 +442,35 @@ abb66b <- ggplot(data = surveyDF, aes(x = parentesco, fill = cuadrantes)) +
 
 #ggsave(plot = abb66b, filename = "Abbildung_6_6b.pdf", width = 297, height = 210, units = "mm")
 
-c9 <- ggplot(data = surveyDF, aes(x = ic_cv, fill = cuadrantes)) +
-            geom_bar(position = 'stack', width = 0.75) +
-            theme_light() +
-            labs(y = "Anzahl der Beobachtung") +
-            scale_fill_discrete("Armutskategorie",
-                                labels = c("extreme Armut\t", "gemilderte Armut\t", 
-                                        "anfällige Armut aufgrund niedrigem Einkommen",
-                                        "anfällige Armut aufgrund Sozialmangel", 
-                                        "keine Armut")) +
-            theme(#plot.title = element_text(size = 28, face = "bold"),
-                  axis.line.x = element_line(color = "black", size = 0.5),
-                  axis.line.y = element_line(color = "black", size = 0.5),
-                  axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0)),
-                  axis.text.y = element_text(size = 20, margin = margin(t = 0, r = 0, b = 0, l = 10)),
-                  #axis.title.x = element_text(size = 24, face = "bold"),
-                  axis.title.x = element_blank(),
-                  axis.title.y = element_text(size = 24, face = "bold"),
-                  axis.ticks.length = unit(.25, "cm"),
-                  axis.ticks = element_line(colour = "black"),
-                  legend.title = element_blank(),
-                  legend.margin = margin(c(0,10,0,0)),
-                  legend.text = element_text(size = 18),
-                  legend.position = "bottom",
-                  legend.background = element_blank(),
-                  legend.box.background = element_rect(colour = "black"),
-                  legend.box.margin = margin(c(5,0,5,0)),
-                  legend.key.width = unit(1.5,"line"),
-                  legend.key.height = unit(2,"line")) +
-            guides(fill = guide_legend(nrow = 2)) 
+# c9 <- ggplot(data = surveyDF, aes(x = ic_cv, fill = cuadrantes)) +
+#             geom_bar(position = 'stack', width = 0.75) +
+#             theme_light() +
+#             labs(y = "Anzahl der Beobachtung") +
+#             scale_fill_discrete("Armutskategorie",
+#                                 labels = c("extreme Armut\t", "gemilderte Armut\t", 
+#                                         "anfällige Armut aufgrund niedrigem Einkommen",
+#                                         "anfällige Armut aufgrund Sozialmangel", 
+#                                         "keine Armut")) +
+#             theme(#plot.title = element_text(size = 28, face = "bold"),
+#                   axis.line.x = element_line(color = "black", size = 0.5),
+#                   axis.line.y = element_line(color = "black", size = 0.5),
+#                   axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0)),
+#                   axis.text.y = element_text(size = 20, margin = margin(t = 0, r = 0, b = 0, l = 10)),
+#                   #axis.title.x = element_text(size = 24, face = "bold"),
+#                   axis.title.x = element_blank(),
+#                   axis.title.y = element_text(size = 24, face = "bold"),
+#                   axis.ticks.length = unit(.25, "cm"),
+#                   axis.ticks = element_line(colour = "black"),
+#                   legend.title = element_blank(),
+#                   legend.margin = margin(c(0,10,0,0)),
+#                   legend.text = element_text(size = 18),
+#                   legend.position = "bottom",
+#                   legend.background = element_blank(),
+#                   legend.box.background = element_rect(colour = "black"),
+#                   legend.box.margin = margin(c(5,0,5,0)),
+#                   legend.key.width = unit(1.5,"line"),
+#                   legend.key.height = unit(2,"line")) +
+#             guides(fill = guide_legend(nrow = 2)) 
 
 #ggsave(plot = c9, filename = "C9.pdf", width = 297, height = 210, units = "mm")
 ```
@@ -481,16 +479,16 @@ c9 <- ggplot(data = surveyDF, aes(x = ic_cv, fill = cuadrantes)) +
 # Fehlende Werte asis_esc & habl_ind 
 ## (surveyDF: Modus je Armutskategorie; censusDF: Modus)
 Mode2 <- function(x) {tab <- table(x); names(tab)[which.max(tab)]} #Quelle: https://stat.ethz.ch/pipermail/r-help/2010-March/231975.html 
-aggregate(surveyDF[c('asis_esc')],
+aggregate(surveyDF[c('asis_esc', 'habl_ind')],
           by = list(surveyDF$cuadrantes),
           FUN = Mode2)
 rm(Mode2)
 
 surveyDF$asis_esc[which(is.na(surveyDF$asis_esc))] <- 'Ja'
-#surveyDF$habl_ind[which(is.na(surveyDF$habl_ind))] <- 'Nein'
+surveyDF$habl_ind[which(is.na(surveyDF$habl_ind))] <- 'Nein'
 
 censusDF$asis_esc[which(is.na(surveyDF$asis_esc))] <- names(which.max(table(censusDF['asis_esc'])))
-#censusDF$habl_ind[which(is.na(surveyDF$habl_ind))] <- names(which.max(table(censusDF['habl_ind'])))
+censusDF$habl_ind[which(is.na(surveyDF$habl_ind))] <- names(which.max(table(censusDF['habl_ind'])))
 
 # Fehlende Werte anos_escolaridad 
 # (surveyDF: Median je Armutskategorie; censusDF: Median)
@@ -521,56 +519,54 @@ all(!is.na(censusDF))
 
 ```{r Vorbereitung für Modellierung}
 # Datensatz in Trainings- und Testdatendatz splitten
-set.seed(123)
+set.seed(111)
 split = sample.split(surveyDF$cuadrantes, SplitRatio = 0.75)
 surveyTrainDF = subset(surveyDF, split == TRUE)
 surveyTestDF = subset(surveyDF, split == FALSE)
 rm(split)
 
 # Vorbereitung k-fache Kreuzvalidierung
-set.seed(123)
+set.seed(111)
 folds <- createFolds(surveyDF$cuadrantes, k = 10, list = TRUE, returnTrain = FALSE)
 ```
 
 ```{r Modellierung Multimomiale logistische Regression}
 # MLR k-fache Kreuzvalidierung
-#MLR_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
-MLR_RmVar <- data.frame(Fold = integer(), rmVar = integer())
-#MLR_ConfMat <- list()
-
-for (i in c(1:10)) {
-    
-    # k-1 Folds für Training und 1 für Valid
-    validID <- i
-    trainID <- c(1:10)[which(!(c(1:10) == i))]
-    validDF <- surveyTrainDF[folds[[validID]],]
-    trainDF <- surveyTrainDF[c(unlist(folds[trainID])),]
-    
-    # Trainiere k-1 Folds
-    MLR_FULL <- multinom(cuadrantes ~ ., data = trainDF, maxit = 1000)
-    MLR_AIC <- step(MLR_FULL, direction = 'backward', trace = 0)
-    
-    # Zu entfernende erklärende Variablen
-    MLR_RmVar[i,] <- c(i, paste(MLR_FULL$vcoefnames[which(!(MLR_FULL$vcoefnames %in% MLR_AIC$vcoefnames))], collapse = " "))
-    
-    # MLR k-fache Kreuzvalidierung Vorhersage
-    #MLR_yPred <- predict(MLR_AIC, newdata = validDF[-1])
-    
-    # MLR k-fache Kreuzvalidierung Confusion Matrix
-    #MLR_ConfMat[[i]] = table(true = validDF[,1], pred = MLR_yPred)
-    
-    # MLR k-fache Kreuzvalidierung Genauigkeit
-    #MLR_Accuracy[i,] <- c(i, sum(diag(MLR_ConfMat[[i]]))/sum(MLR_ConfMat[[i]])) 
-    
-}
+# MLR_RmVar <- data.frame(Fold = integer(), rmVar = integer())
+# 
+# for (i in c(1:10)) {
+#     
+#     # k-1 Folds für Training und 1 für Valid
+#     validID <- i
+#     trainID <- c(1:10)[which(!(c(1:10) == i))]
+#     validDF <- surveyTrainDF[folds[[validID]],]
+#     trainDF <- surveyTrainDF[c(unlist(folds[trainID])),]
+#     
+#     # Trainiere k-1 Folds
+#     MLR_FULL <- multinom(cuadrantes ~ ., data = trainDF, maxit = 1000)
+#     MLR_AIC <- step(MLR_FULL, direction = 'backward', trace = 0)
+#     
+#     # Zu entfernende erklärende Variablen
+#     MLR_RmVar[i,] <- c(i, paste(MLR_FULL$vcoefnames[which(!(MLR_FULL$vcoefnames %in% MLR_AIC$vcoefnames))], collapse = " "))
+#     
+#     # MLR k-fache Kreuzvalidierung Vorhersage
+#     MLR_yPred <- predict(MLR_AIC, newdata = validDF[-1])
+#     
+#     # MLR k-fache Kreuzvalidierung Confusion Matrix
+#     MLR_ConfMat[[i]] = table(true = validDF[,1], pred = MLR_yPred)
+#     
+#     # MLR k-fache Kreuzvalidierung Genauigkeit
+#     MLR_Accuracy[i,] <- c(i, sum(diag(MLR_ConfMat[[i]]))/sum(MLR_ConfMat[[i]]))
+#     
+# }
 
 # Evaluation MLR k-fache Kreuzvalidierung 
-MLR_RmVar # zu entfernende erklärende der k Iterationen
+# MLR_RmVar # zu entfernende erklärende der k Iterationen
 
 #[, !(names(surveyDF) %in% c('sexo', 'habl_ind', 'parentesco'))]
 
-# Finale MLR in Testdaten anwenden
-MLR_Final <- multinom(cuadrantes ~ ., data = surveyDF, maxit = 1000)
+# MLR mit Rückwärtselektion trainieren
+MLR_Final <- multinom(cuadrantes ~ ., data = surveyTrainDF, maxit = 1000)
 MLR_Final_AIC <- step(MLR_Final, direction = 'backward', trace = 0)
 
 paste(MLR_Final$vcoefnames[which(!(MLR_Final$vcoefnames %in% MLR_Final_AIC$vcoefnames))], collapse = " ")
@@ -583,15 +579,15 @@ MLR_ConfMat = table(true = surveyTestDF[,1], pred = MLR_yPred)
 #xtable(MLR_ConfMat)
 
 # MLR k-fache Kreuzvalidierung Genauigkeit
-MLR_Accuracy <- sum(diag(MLR_ConfMat))/sum(MLR_ConfMat)
+MLR_Accuracy <- round(sum(diag(MLR_ConfMat))/sum(MLR_ConfMat)*100,2)
 
-rm("i", "validID", "validDF", "trainID", "trainDF", "MLR_yPred")
+rm("MLR_yPred")
 ```
 
 ```{r Modellierung Linear SVM}
 # Parameteroptimierung linearer SVM
 linSVM_Tune <- tune.svm(cuadrantes ~ ., data = surveyTrainDF, 
-                        kernel = 'linear', cost = 10^c(-3:3))
+                        kernel = 'linear', cost = 10^c(-3:6))
 linSVM_Tune_Result <- data.frame(C = linSVM_Tune$performances[,1], 
                                  Accuracy = 1 - linSVM_Tune$performances[,2])
 
@@ -776,8 +772,7 @@ abb610 <- ggplot(S1_Accuracy, aes(x = ID, y = Accuracy, color = ID)) +
 ggsave(plot = abb610, filename = "Abbildung_6_10.pdf", width = 297, height = 210, units = "mm")
 ```
 
-
-```{r Szenario 2}
+```{r Simulation Szenario 2}
 load("/Users/XuanSon/Desktop/complexSimData.Rdata")
 
 # SVM Parameteroptimierung anhand einem Paar Sample - Population
