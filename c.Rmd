@@ -630,8 +630,8 @@ linSVM_Accuracy <- sum(diag(linSVM_ConfMat))/sum(linSVM_ConfMat)
 ```{r Modellierung RBF SVM}
 # Parameteroptimierung RBF SVM
 RBFSVM_Tune <- tune.svm(cuadrantes ~ ., data = surveyTrainDF, 
-                 gamma = 10^(c(-6:3)), 
-                 cost = 10^(c(7:8)))
+                 gamma = 10^(c(-4:2)), 
+                 cost = 10^(c(-2:5)))
 
 RBFSVM_Tune_Result <- data.frame(Gamma = RBFSVM_Tune$performances[,1],
                                  C = RBFSVM_Tune$performances[,2], 
