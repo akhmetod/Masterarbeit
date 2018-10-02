@@ -60,7 +60,7 @@ censusDF <- censusDF[, !(colnames(censusDF) %in% missingRmVar[1:5,1])]
 surveyDF <- surveyDF[, !(colnames(surveyDF) %in% missingRmVar[1:5,1])]
 
 # Hilfsvariablen werden entfernt
-hilfsvariablen <- c('est_dis', 'ent', 'factor', 'mun', 'upm')
+hilfsvariablen <- c('est_dis', 'ent', 'factor', 'idD', 'upm')
 surveyDF <- surveyDF[ , !(names(surveyDF)  %in% hilfsvariablen)]
 censusDF <- censusDF[ , !(names(censusDF)  %in% hilfsvariablen)]
 rm(hilfsvariablen)
@@ -82,7 +82,7 @@ surveyDF$asis_esc <- surveyDF$asis_esc - 1 #Damit gleiche Werte mit Census Datei
 censusDF$sexo <- censusDF$sexo - 1 #Damit gleiche Werte mit Survey Datei
 
 names(surveyDF)[7] <- 'anos_escolaridad' #Umbenennung für richtige Zeichencodierung
-names(censusDF)[6] <- 'anos_escolaridad' #Umbenennung für richtige Zeichencodierung
+names(censusDF)[7] <- 'anos_escolaridad' #Umbenennung für richtige Zeichencodierung
 
 listDF <- c("surveyDF", "censusDF")
 
@@ -106,7 +106,7 @@ for (i in c(1,2)) {
     df$ic_sbv <- factor(df$ic_sbv, levels = c(0,1), labels = c('Nein','Ja'))
     df$rururb <- factor(df$rururb, levels = c(0,1), labels = c('Städtisch','Ländlich'))
     df$tam_loc <- factor(df$tam_loc, levels = c(1,2,3,4), labels = c('mehr als 100.000','15.000 bis 99.999', '2.500 bis 14.999', 'weniger als 2.500'))
-    df$idD <- factor(df$idD)
+    df$mun <- factor(df$mun)
     
     assign(listDF[i], df , envir = .GlobalEnv)
 }
@@ -115,7 +115,8 @@ rm(df)
 rm(listDF)
 rm(i)
 
-surveyDF <- surveyDF[ , - which(names(surveyDF) == "idD")]
+# idD als Zuordnungsvariable zur Kartenerstellung wird aus dem Trainingsmodell entfernt
+surveyDF <- surveyDF[ , -which(names(surveyDF) == "mun")]
 ```
 
 ```{r Diagramme, warning = FALSE}
@@ -408,7 +409,7 @@ rm(df)
 rm(listDF)
 rm(i)
 
-describe(surveyDF$parentesco)
+#describe(surveyDF$parentesco)
 
 abb66b <- ggplot(data = surveyDF, aes(x = parentesco, fill = cuadrantes)) +
     geom_bar(position = 'stack', width = 0.75) +
@@ -526,8 +527,8 @@ surveyTestDF = subset(surveyDF, split == FALSE)
 rm(split)
 
 # Vorbereitung k-fache Kreuzvalidierung
-set.seed(111)
-folds <- createFolds(surveyDF$cuadrantes, k = 10, list = TRUE, returnTrain = FALSE)
+# set.seed(111)
+# folds <- createFolds(surveyDF$cuadrantes, k = 10, list = TRUE, returnTrain = FALSE)
 ```
 
 ```{r Modellierung Multimomiale logistische Regression}
@@ -587,7 +588,7 @@ rm("MLR_yPred")
 ```{r Modellierung Linear SVM}
 # Parameteroptimierung linearer SVM
 linSVM_Tune <- tune.svm(cuadrantes ~ ., data = surveyTrainDF, 
-                        kernel = 'linear', cost = 10^c(-3:6))
+                        kernel = 'linear', cost = 10^c(4:6))
 linSVM_Tune_Result <- data.frame(C = linSVM_Tune$performances[,1], 
                                  Accuracy = 1 - linSVM_Tune$performances[,2])
 
@@ -780,22 +781,22 @@ trainDF <- popList[[1]]$smp
 validDF <- popList[[1]]$pop
 
 S2_linSVM_Tune <- tune.svm(y ~ . - intecept , data = trainDF, kernel = 'linear',
-             cost = 10^(c(-5:5)))
+             cost = 10^(c(-3:3)))
 
 S2_RBFSVM_Tune <- tune.svm(y ~ . - intecept, data = trainDF,
              gamma = 10^(c(-3:3)),
              cost = 10^(c(-3:3)))
 
-S2_polySVM_Tune <- tune.svm(y ~ . - intecept, data = trainDF, kernel = 'polynomial', 
-             gamma = 10^(c(-3:3)),
-             coef0 = 10^(c(1:3)),
-             degree = 2:5,
-             cost = 10^(c(-3:3))
-             )
+# S2_polySVM_Tune <- tune.svm(y ~ . - intecept, data = trainDF, kernel = 'polynomial', 
+#              gamma = 10^(c(-3:3)),
+#              coef0 = 10^(c(1:3)),
+#              degree = 2:5,
+#              cost = 10^(c(-3:3))
+#              )
 
-S2_sigSVM_Tune <- tune.svm(y ~ . - intecept, data = trainDF,
-             gamma = 10^(c(-3:3)),
-             coef0 = 10^(c(1:3)),
+S2_sigSVM_Tune <- tune.svm(y ~ . - intecept, data = trainDF, kernel = 'sigmoid',
+             gamma = 10^(c(-5:3)),
+             coef0 = 10^(c(-5:3)),
              cost = 10^(c(-3:3))
              )
 
@@ -803,7 +804,7 @@ S2_sigSVM_Tune <- tune.svm(y ~ . - intecept, data = trainDF,
 S2_MLR_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
 S2_linSVM_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
 S2_RBFSVM_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
-S2_polySVM_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
+S2_sigSVM_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
 
 # S1_MLR_RmVar <- data.frame(Fold = integer(), rmVar = integer())
 # S1_linSVM_RmVar <- data.frame(Fold = integer(), rmVar = integer())
@@ -812,7 +813,7 @@ S2_polySVM_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
 S2_MLR_ConfMat <- list()
 S2_linSVM_ConfMat <- list()
 S2_RBFSVM_ConfMat <- list()
-S2_polySVM_ConfMat <- list()
+S2_sigSVM_ConfMat <- list()
 
 for (i in c(1:200)) {
     # Trainings- und Validierungsdaten
@@ -861,38 +862,35 @@ for (i in c(1:200)) {
     # RBFSVM Genauigkeit
     S2_RBFSVM_Accuracy[i,] <- c(i,sum(diag(S2_RBFSVM_ConfMat))/sum(S2_RBFSVM_ConfMat))
    
-    # polySVM Trainieren
-    S2_polySVM_Modell <- svm(y ~ . - intecept,
+    # sigSVM Trainieren
+    S2_sigSVM_Modell <- svm(y ~ . - intecept,
                   data = trainDF,
                   type = "C-classification",
-                  kernel = "radial",
-                  degree = S2_polySVM_Tune$best.parameters$degree, 
-                  cost = S2_polySVM_Tune$best.parameters$cost,
-                  gamma = S2_polySVM_Tune$best.parameters$gamma,
-                  coef0 = S2_polySVM_Tune$best.parameters$coef0)
-    # polySVM Vorhersage
-    S2_polySVM_yPred = predict(S2_polySVM_Modell, newdata = validDF[-1])
-    # polySVM Confusion Matrix
-    S2_polySVM_ConfMat = table(true = validDF[,1], pred = S2_polySVM_yPred)
-    # polySVM Genauigkeit
-    S2_polySVM_Accuracy[i,] <- c(i,sum(diag(S2_polySVM_ConfMat))/sum(S2_polySVM_ConfMat))
+                  kernel = "sigmoid",
+                  cost = S2_sigSVM_Tune$best.parameters$cost,
+                  gamma = S2_sigSVM_Tune$best.parameters$gamma,
+                  coef0 = S2_sigSVM_Tune$best.parameters$coef0)
+    # sigSVM Vorhersage
+    S2_sigSVM_yPred = predict(S2_sigSVM_Modell, newdata = validDF[-1])
+    # sigSVM Confusion Matrix
+    S2_sigSVM_ConfMat = table(true = validDF[,1], pred = S2_sigSVM_yPred)
+    # sigSVM Genauigkeit
+    S2_sigSVM_Accuracy[i,] <- c(i,sum(diag(S2_sigSVM_ConfMat))/sum(S2_sigSVM_ConfMat))
 }
 
 S2_Accuracy <- data.frame(Accuracy = c(S2_MLR_Accuracy$Accuracy,
                                        S2_linSVM_Accuracy$Accuracy,
-                                       S2_polySVM_Accuracy$Accuracy,
-                                       S2_RBFSVM_Accuracy$Accuracy),
+                                       S2_RBFSVM_Accuracy$Accuracy,
+                                       S2_sigSVM_Accuracy$Accuracy),
                           ID = c(rep("MLR", 200), 
                                  rep("linSVM", 200),
-                                 rep("polySVM", 200),
-                                 rep("RBFSVM", 200)))
-
-S2_Accuracy[which(S2_Accuracy$ID == 'polySVM'),1] == S2_Accuracy[which(S2_Accuracy$ID == 'RBFSVM'),1]
+                                 rep("RBFSVM", 200),
+                                 rep("sigSVM", 200)))
 
 abb611 <- ggplot(S2_Accuracy, aes(x = ID, y = Accuracy, color = ID)) + 
     geom_boxplot() +
     theme_light() +
-    scale_x_discrete(limits = c('MLR', 'linSVM', 'polySVM', 'RBFSVM')) +
+    scale_x_discrete(limits = c('MLR', 'linSVM', 'RBFSVM', 'sigSVM')) +
     #scale_y_continuous(limits = c(min(S2_Accuracy$Accuracy), max(S2_Accuracy$Accuracy))) +
     scale_color_discrete(guide = FALSE) +
     theme(#plot.title = element_text(size = 28, face = "bold"),
@@ -907,7 +905,7 @@ abb611 <- ggplot(S2_Accuracy, aes(x = ID, y = Accuracy, color = ID)) +
           axis.ticks = element_line(colour = "black"),
           legend.title = element_blank())
 
-ggsave(plot = abb611, filename = "Abbildung_6_11.pdf", width = 297, height = 210, units = "mm")
+ggsave(plot = abb611, filename = "Abbildung_6_11a.pdf", width = 297, height = 210, units = "mm")
 
 ```
 
