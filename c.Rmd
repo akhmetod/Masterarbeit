@@ -588,22 +588,29 @@ rm("MLR_yPred")
 ```{r Modellierung Linear SVM}
 # Parameteroptimierung linearer SVM
 linSVM_Tune <- tune.svm(cuadrantes ~ ., data = surveyTrainDF, 
-                        kernel = 'linear', cost = 10^c(-5:5))
+                        kernel = 'linear', cost = 10^c(-5:6))
+
 linSVM_Tune_Result <- data.frame(C = linSVM_Tune$performances[,1], 
                                  Accuracy = 1 - linSVM_Tune$performances[,2])
 
 # Plot tune-Ergebnisse linearer SVM
 linSVM_tunePlot <- ggplot(linSVM_Tune_Result, aes(x = C, y = Accuracy)) +
-    geom_line(size = 1.1) +
+    geom_line(size = 1.2) +
     theme_light() +
     labs(x = "C", y = "Genauigkeit") +
-    scale_x_continuous(trans = 'log10') +
+    scale_x_log10(breaks = 10^(-5:6),
+                  labels = trans_format("log10", math_format(10^.x))) +
+    scale_y_continuous(breaks = seq(round(min(linSVM_Tune_Result$Accuracy), 1),
+                                    round(max(linSVM_Tune_Result$Accuracy), 1),
+                                    0.05),
+                       limits = c(min(linSVM_Tune_Result$Accuracy),
+                                  round(max(linSVM_Tune_Result$Accuracy),1))) +
     theme(axis.line.x = element_line(color = "black", size = 0.5),
           axis.line.y = element_line(color = "black", size = 0.5),
           axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0)),
           axis.text.y = element_text(size = 20, margin = margin(t = 0, r = 0, b = 0, l = 10)),
-          #axis.title.x = element_text(size = 24, face = "bold"),
-          axis.title.x = element_blank(),
+          axis.title.x = element_text(size = 24, face = "bold"),
+          #axis.title.x = element_blank(),
           axis.title.y = element_text(size = 24, face = "bold"),
           axis.ticks.length = unit(.25, "cm"),
           axis.ticks = element_line(colour = "black"))
@@ -622,16 +629,17 @@ linSVM_yPred = predict(linSVM_Modell, newdata = surveyTestDF[-1])
 
 # Confusion Matrix linearer SVM
 linSVM_ConfMat <- table(true = surveyTestDF[,1], pred = linSVM_yPred)
+#xtable(linSVM_ConfMat)
 
 # Genauigkeit linearer SVM
-linSVM_Accuracy <- sum(diag(linSVM_ConfMat))/sum(linSVM_ConfMat)
+linSVM_Accuracy <- round(sum(diag(linSVM_ConfMat))*100/sum(linSVM_ConfMat),2)
 ```
 
 ```{r Modellierung RBF SVM}
 # Parameteroptimierung RBF SVM
-RBFSVM_Tune <- tune.svm(cuadrantes ~ ., data = surveyTrainDF, 
+RBFSVM_Tune <- tune.svm(cuadrantes ~ ., data = surveyTrainDF,
                  gamma = 10^(c(-4:2)), 
-                 cost = 10^(c(-2:5)))
+                 cost = 10^(c(-2:7)))
 
 RBFSVM_Tune_Result <- data.frame(Gamma = RBFSVM_Tune$performances[,1],
                                  C = RBFSVM_Tune$performances[,2], 
@@ -641,19 +649,26 @@ RBFSVM_Tune_Result <- data.frame(Gamma = RBFSVM_Tune$performances[,1],
 RBFSVM_tunePlot <- ggplot(RBFSVM_Tune_Result, 
                           aes(x = Gamma, y = C)) +
     geom_tile(aes(fill = Accuracy), color = "white") +
-    geom_text(aes(label = round(Accuracy,3))) +
-    scale_fill_gradient(low = "skyblue", high = "steelblue") +
+    geom_text(aes(label = round(Accuracy,3)),
+              size = 6) +
+    scale_fill_gradient(low = "#F8766D", high = "#00BA38") +
     labs(x = "Gamma", y = "Cost") +
-    scale_x_continuous(trans = 'log10', expand = c(0,0)) +
-    scale_y_continuous(trans = 'log10', expand = c(0,0)) +
+    scale_x_log10(breaks = 10^(-4:2),
+                  labels = trans_format("log10", math_format(10^.x)),
+                  expand = c(0,0)) +
+    scale_y_log10(breaks = 10^(-2:7),
+                  labels = trans_format("log10", math_format(10^.x)),
+                  expand = c(0,0)) +
     theme(axis.line.x = element_line(color = "black", size = 0.5),
           axis.line.y = element_line(color = "black", size = 0.5),
           axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0)),
-          axis.text.y = element_text(size = 20, margin = margin(t = 0, r = 0, b = 0, l = 10)),
+          axis.text.y = element_text(size = 20, margin = margin(t = 0, r = 5, b = 0, l = 0)),
           axis.title.x = element_text(size = 24, face = "bold"),
           axis.title.y = element_text(size = 24, face = "bold"),
           axis.ticks.length = unit(.25, "cm"),
           axis.ticks = element_line(colour = "black"))
+
+RBFSVM_tunePlot
 
 ggsave(plot = RBFSVM_tunePlot, filename = "Abbildung_6_9.pdf", width = 297, height = 210, units = "mm")
 
@@ -666,14 +681,14 @@ RBFSVM_Modell <- svm(cuadrantes ~ .,
               cost = RBFSVM_Tune$best.parameters$cost)
 
 # Vorhersage RBF SVM
-RBFSVM_yPred = predict(linSVM_Modell, newdata = surveyTestDF[-1])
-
+RBFSVM_yPred = predict(RBFSVM_Modell, newdata = surveyTestDF[-1])
 
 # Confusion Matrix RBF SVM
 RBFSVM_ConfMat = table(true = surveyTestDF[,1], pred = RBFSVM_yPred)
+#xtable(RBFSVM_ConfMat)
 
 # Genauigkeit RBF SVM
-RBFSVM_Accuracy <- sum(diag(RBFSVM_ConfMat))/sum(RBFSVM_ConfMat)
+RBFSVM_Accuracy <- round(sum(diag(RBFSVM_ConfMat))*100/sum(RBFSVM_ConfMat),2)
 ```
 
 ```{r Simulation Szenario 1}
