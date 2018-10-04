@@ -20,6 +20,7 @@ library(caret)
 library(caTools)
 library(nnet)
 library(e1071)
+library(scales)
 options(xtable.floating = FALSE)
 options(xtable.timestamp = "")
 #options(scipen = 999)
@@ -74,7 +75,7 @@ zeroVar <- data.frame(surveyDF = nearZeroVar(surveyDF, name = TRUE),
 
 # Transformation numerischer in kategorialer Variablen. Ausgenommen sind edad und anos_escolaridad, da sie metrisch skaliert sind.
 surveyDF$cuadrantes <- factor(surveyDF$cuadrantes, levels = c(1,2,3,4,5), 
-                                 labels = c('extrem','gemildert',
+                                 labels = c('extrem','moderat',
                                             'anfällig aufgrund Einkommen', 
                                             'anfällig aufgrund Sozialmangel', 'keine'))
 
@@ -127,7 +128,7 @@ abb61 <- ggplot(data = surveyDF, aes(x = cuadrantes, fill = cuadrantes)) +
     labs(y = "Anzahl der Beobachtung",
          x = "Armutskategorie") +
     scale_fill_discrete(guide = FALSE) +
-    scale_x_discrete(labels = c("extreme\nArmut", "gemilderte\nArmut", 
+    scale_x_discrete(labels = c("extreme\nArmut", "moderate\nArmut", 
                                 "anfällige Armut\naufgrund\nniedrigem\nEinkommen",
                                 "anfällige Armut\naufgrund\nSozialmangel", 
                                 "keine\nArmut")) +
@@ -153,7 +154,7 @@ abb62 <- ggplot(data = surveyDF, aes(x = cuadrantes, fill = sexo)) +
          x = " ",
          fill = "Geschlecht") +
     scale_x_discrete("Armutskategorie",
-                     labels = c("extreme\nArmut", "gemilderte\nArmut", 
+                     labels = c("extreme\nArmut", "moderate\nArmut", 
                                 "anfällige Armut\naufgrund\nniedrigem\nEinkommen",
                                 "anfällige Armut\naufgrund\nSozialmangel", 
                                 "keine\nArmut")) +
@@ -208,7 +209,7 @@ abb63 <- ggplot(data = surveyDF, aes(x = edad, fill = cuadrantes)) +
     scale_y_continuous(expand = c(0,0)) +
     scale_fill_discrete("Armutskategorie",
                         breaks = c("1", "2", "3", "4", "5"), 
-                        labels = c("extreme Armut\t", "gemilderte Armut\t", 
+                        labels = c("extreme Armut\t", "moderate Armut\t", 
                                 "anfällige Armut aufgrund niedrigem Einkommen",
                                 "anfällige Armut aufgrund Sozialmangel", 
                                 "keine Armut")) +
@@ -248,7 +249,7 @@ abb64 <- ggplot(data = surveyDF, aes(x = anos_escolaridad, fill = cuadrantes)) +
                                     max(surveyDF$anos_escolaridad, na.rm = TRUE), by = 1)) +
     scale_fill_discrete("Armutskategorie",
                         breaks = c("1", "2", "3", "4", "5"), 
-                        labels = c("extreme Armut\t", "gemilderte Armut\t", 
+                        labels = c("extreme Armut\t", "moderate Armut\t", 
                                 "anfällige Armut aufgrund niedrigem Einkommen",
                                 "anfällige Armut aufgrund Sozialmangel", 
                                 "keine Armut")) +
@@ -285,7 +286,7 @@ abb65a <- ggplot(data = surveyDF, aes(x = rururb, fill = cuadrantes)) +
     labs(#title = "C.5 Armutskategorie nach Wohnort",
          y = "Anteil der Beobachtung je Wohnort",
          x = " ") +
-    scale_fill_discrete(labels = c("extreme Armut\t", "gemilderte Armut\t", 
+    scale_fill_discrete(labels = c("extreme Armut\t", "moderate Armut\t", 
                                 "anfällige Armut aufgrund niedrigem Einkommen",
                                 "anfällige Armut aufgrund Sozialmangel", 
                                 "keine Armut")) +
@@ -324,7 +325,7 @@ abb65b <- ggplot(data = surveyDF, aes(x = tam_loc, fill = cuadrantes)) +
     labs(#title = "C.6 Armutskategorie nach Einwohnerzahl des Wohnorts",
          y = "Anteil der Beobachtung je Wohnortgröße",
          x = " ") +
-    scale_fill_discrete(labels = c("extreme Armut\t", "gemilderte Armut\t", 
+    scale_fill_discrete(labels = c("extreme Armut\t", "moderate Armut\t", 
                                 "anfällige Armut aufgrund niedrigem Einkommen",
                                 "anfällige Armut aufgrund Sozialmangel", 
                                 "keine Armut")) +
@@ -362,7 +363,7 @@ abb66a <- ggplot(data = surveyDF, aes(x = parentesco, fill = cuadrantes)) +
     theme_light() +
     labs(y = "Anzahl der Beobachtung") +
     scale_fill_discrete("Armutskategorie",
-                        labels = c("extreme Armut\t", "gemilderte Armut\t", 
+                        labels = c("extreme Armut\t", "moderate Armut\t", 
                                 "anfällige Armut aufgrund niedrigem Einkommen",
                                 "anfällige Armut aufgrund Sozialmangel", 
                                 "keine Armut")) +
@@ -416,7 +417,7 @@ abb66b <- ggplot(data = surveyDF, aes(x = parentesco, fill = cuadrantes)) +
     theme_light() +
     labs(y = "Anzahl der Beobachtung") +
     scale_fill_discrete("Armutskategorie",
-                        labels = c("extreme Armut\t", "gemilderte Armut\t", 
+                        labels = c("extreme Armut\t", "moderate Armut\t", 
                                 "anfällige Armut aufgrund niedrigem Einkommen",
                                 "anfällige Armut aufgrund Sozialmangel", 
                                 "keine Armut")) +
@@ -448,7 +449,7 @@ abb66b <- ggplot(data = surveyDF, aes(x = parentesco, fill = cuadrantes)) +
 #             theme_light() +
 #             labs(y = "Anzahl der Beobachtung") +
 #             scale_fill_discrete("Armutskategorie",
-#                                 labels = c("extreme Armut\t", "gemilderte Armut\t", 
+#                                 labels = c("extreme Armut\t", "moderate Armut\t", 
 #                                         "anfällige Armut aufgrund niedrigem Einkommen",
 #                                         "anfällige Armut aufgrund Sozialmangel", 
 #                                         "keine Armut")) +
@@ -498,7 +499,7 @@ anosCuad <- aggregate(surveyDF['anos_escolaridad'],
           FUN = median,
           na.rm = TRUE,
           na.action = na.pass)
-for (i in c('extrem','gemildert','anfällig aufgrund Einkommen', 'anfällig aufgrund Sozialmangel', 'keine')) {
+for (i in c('extrem','moderat','anfällig aufgrund Einkommen', 'anfällig aufgrund Sozialmangel', 'keine')) {
     
     surveyDF$anos_escolaridad[which(is.na(surveyDF$anos_escolaridad) &
                            surveyDF$cuadrantes == i)] <- anosCuad[which(anosCuad == i),2]
@@ -593,6 +594,8 @@ linSVM_Tune <- tune.svm(cuadrantes ~ ., data = surveyTrainDF,
 linSVM_Tune_Result <- data.frame(C = linSVM_Tune$performances[,1], 
                                  Accuracy = 1 - linSVM_Tune$performances[,2])
 
+# linSVM_Tune_Result <- read.csv("linSVM_Tune_Result.csv", sep = ",")[,-1]
+
 # Plot tune-Ergebnisse linearer SVM
 linSVM_tunePlot <- ggplot(linSVM_Tune_Result, aes(x = C, y = Accuracy)) +
     geom_line(size = 1.2) +
@@ -622,7 +625,7 @@ linSVM_Modell <- svm(cuadrantes ~ .,
               data = surveyTrainDF,
               type = "C-classification",
               kernel = "linear", 
-              cost = linSVM_Tune$best.parameters$cost)
+              cost = linSVM_Tune$best.parameters$cost) #C = 10^4
 
 # Vorhersage linearer SVM
 linSVM_yPred = predict(linSVM_Modell, newdata = surveyTestDF[-1])
@@ -690,6 +693,41 @@ RBFSVM_ConfMat = table(true = surveyTestDF[,1], pred = RBFSVM_yPred)
 # Genauigkeit RBF SVM
 RBFSVM_Accuracy <- round(sum(diag(RBFSVM_ConfMat))*100/sum(RBFSVM_ConfMat),2)
 ```
+
+```{r Evaluation Mexiko-Daten}
+# Erstellung von binären Konfusionsmatrixen
+MLR_binConfMat <- list()
+linSVM_binConfMat <- list()
+RBFSVM_linConfMat <- list()
+
+list_binConfMat <- c("MLR_binConfMat", "linSVM_binConfMat", "RBFSVM_linConfMat")
+temp_df <- list()
+
+for (j in c(1,2,3)) { #für jede binConfMat
+    
+    for (i in c("extrem", "moderat", "anfällig aufgrund Einkommen", "anfällig aufgrund Sozialmangel", "keine")) { #für jede Klasse
+    
+    df <- list(MLR_ConfMat, linSVM_ConfMat, RBFSVM_ConfMat)[[j]]
+        
+    temp <- c(df[i,i],
+              sum(df[i,]) - df[i,i],
+              sum(df[,i]) - df[i,i],
+              sum(df) - sum(df[i,]) - sum(df[,i]) + df[i,i])
+    
+    temp_df[[i]] <- matrix(temp, nrow = 2, byrow = TRUE)
+    
+    rownames(temp_df[[i]]) <- c(i, "Rest")
+    colnames(temp_df[[i]]) <- c(i, "Rest")
+    
+    
+    }
+    
+    assign(list_binConfMat[j], temp_df , envir = .GlobalEnv)
+}
+
+
+```
+
 
 ```{r Simulation Szenario 1}
 # SVM Parameteroptimierung anhand einem Paar Sample - Population
