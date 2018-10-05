@@ -22,14 +22,19 @@ library(nnet)
 library(e1071)
 library(scales)
 library(pROC)
+library(stringr)
+library(rgdal)
+library(gpclib)
+library(maptools)
 options(xtable.floating = FALSE)
 options(xtable.timestamp = "")
 ```
 
 ```{r Daten importieren, warning=FALSE}
 # CSV-Dateien einlesen
-censusDF <- read.csv('./Rohdaten/c.csv')[,-1] #Spalte 1 enthält nur Zeilennummer und wird entfernt
-surveyDF <- read.csv('./Rohdaten/s.csv')[,-1] #Spalte 1 enthält nur Zeilennummer und wird entfernt
+# Spalte 1 enthält nur Zeilennummer und wird entfernt
+censusDF <- read.csv('./Rohdaten/c.csv')[,-1] 
+surveyDF <- read.csv('./Rohdaten/s.csv')[,-1] 
 
 # Nur gemeinsame erklärende Variablen werden behalten
 censusDF <- censusDF[,colnames(censusDF) %in% colnames(surveyDF)]
@@ -49,7 +54,6 @@ missingRmVar <- left_join(missingSurvey, missingCensus, by = 'Variable')
 missingAll <- left_join(missingSurvey, missingCensus, by = 'Variable')
 missingRmVar <- missingRmVar[which(missingRmVar[,2] > 10 & missingRmVar[,3] > 10),]
 row.names(missingRmVar) <- c(1:nrow(missingRmVar))
-
 rm(missingSurvey)
 rm(missingCensus)
 
@@ -57,8 +61,8 @@ rm(missingCensus)
 #xtable(missingRmVar) 
 
 # Variablen mit zu vielen fehlenden Werten in beiden Datensätzen werden entfernt
-censusDF <- censusDF[, !(colnames(censusDF) %in% missingRmVar[1:5,1])]
-surveyDF <- surveyDF[, !(colnames(surveyDF) %in% missingRmVar[1:5,1])]
+censusDF <- censusDF[, !(colnames(censusDF) %in% missingRmVar[,1])]
+surveyDF <- surveyDF[, !(colnames(surveyDF) %in% missingRmVar[,1])]
 
 # Hilfsvariablen werden entfernt
 hilfsvariablen <- c('est_dis', 'ent', 'factor', 'idD', 'upm')
@@ -76,18 +80,20 @@ zeroVar <- data.frame(surveyDF = nearZeroVar(surveyDF, name = TRUE),
 # surveyDF <- surveyDF %>% select(-c(nearZeroVar(surveyDF)))
 # censusDF <- censusDF %>% select(-c(nearZeroVar(censusDF)))
 
+# Uneinheitlichkeit der Variablen zwischen den Datensätzen beseitigen
+surveyDF$asis_esc <- surveyDF$asis_esc - 1 # Damit gleiche Werte mit Census Datei
+censusDF$sexo <- censusDF$sexo - 1 # Damit gleiche Werte mit Survey Datei
+
+# Umbenennung für richtige Zeichencodierung
+names(surveyDF)[6] <- 'anos_escolaridad' 
+names(censusDF)[6] <- 'anos_escolaridad' 
+
 # Transformation numerischer in kategorialer Variablen. Ausgenommen sind edad und anos_escolaridad, da sie metrisch skaliert sind.
 surveyDF$cuadrantes <- factor(surveyDF$cuadrantes, levels = c(1,2,3,4,5), 
                                  labels = c('extrem','moderat',
                                             'anfällig aufgrund Einkommen', 
                                             'anfällig aufgrund Sozialmangel', 'keine'))
 listKlassen <- levels(surveyDF$cuadrantes)
-
-surveyDF$asis_esc <- surveyDF$asis_esc - 1 #Damit gleiche Werte mit Census Datei
-censusDF$sexo <- censusDF$sexo - 1 #Damit gleiche Werte mit Survey Datei
-
-names(surveyDF)[6] <- 'anos_escolaridad' #Umbenennung für richtige Zeichencodierung
-names(censusDF)[6] <- 'anos_escolaridad' #Umbenennung für richtige Zeichencodierung
 
 listDF <- c("surveyDF", "censusDF")
 
@@ -118,8 +124,6 @@ rm(df)
 rm(listDF)
 rm(i)
 
-# idD als Zuordnungsvariable zur Kartenerstellung wird aus dem Trainingsmodell entfernt
-surveyDF <- surveyDF[ , -which(names(surveyDF) == "mun")]
 ```
 
 ```{r Diagramme, warning = FALSE}
@@ -317,12 +321,16 @@ abb65b <- ggplot(data = surveyDF, aes(x = tam_loc, fill = cuadrantes)) +
     facet_grid(rururb ~ .)
 
 ggsave(plot = abb65b, filename = "./Abbildungen/Abbildung_6_5b.pdf", width = 297, height = 210, units = "mm")
+
+# Abbildungen zur besseren Übersichtlichkeit der Daten entfernen
+rm("abb61","abb62","abb63","abb64","abb65a","abb65b")
 ```
 
 ```{r Behandlung fehlender Werte, warning = FALSE}
 # Fehlende Werte asis_esc & habl_ind 
 ## (surveyDF: Modus je Armutskategorie; censusDF: Modus)
-Mode2 <- function(x) {tab <- table(x); names(tab)[which.max(tab)]} #Quelle: https://stat.ethz.ch/pipermail/r-help/2010-March/231975.html 
+Mode2 <- function(x) {tab <- table(x); names(tab)[which.max(tab)]} 
+#Quelle: https://stat.ethz.ch/pipermail/r-help/2010-March/231975.html 
 aggregate(surveyDF[c('asis_esc', 'habl_ind')],
           by = list(surveyDF$cuadrantes),
           FUN = Mode2)
@@ -367,6 +375,7 @@ set.seed(111)
 split = sample.split(surveyDF$cuadrantes, SplitRatio = 0.75)
 surveyTrainDF = subset(surveyDF, split == TRUE)
 surveyTestDF = subset(surveyDF, split == FALSE)
+surveyTrainDF <- surveyTrainDF[, -which(names(surveyTrainDF) == "mun")]
 rm(split)
 
 # Vorbereitung k-fache Kreuzvalidierung
@@ -380,10 +389,12 @@ colnames(dummyDF) <- listKlassen
 for (i in listKlassen) {
     dummyDF[,i] <- as.numeric(surveyTestDF[1] == i)
 }
+
+rm(i)
 ```
 
 ```{r Modellierung Multimomiale logistische Regression}
-# MLR mit Rückwärtselektion trainieren
+# MLR mit Rückwärtselektion trainieren. 
 MLR_Final <- multinom(cuadrantes ~ ., data = surveyTrainDF, maxit = 1000)
 MLR_Final_AIC <- step(MLR_Final, direction = 'backward', trace = 0)
 
@@ -412,8 +423,6 @@ linSVM_Tune <- tune.svm(cuadrantes ~ ., data = surveyTrainDF,
 linSVM_Tune_Result <- data.frame(C = linSVM_Tune$performances[,1], 
                                  Accuracy = 1 - linSVM_Tune$performances[,2])
 
-# linSVM_Tune_Result <- read.csv("linSVM_Tune_Result.csv", sep = ",")[,-1]
-
 # Plot tune-Ergebnisse linearer SVM
 linSVM_tunePlot <- ggplot(linSVM_Tune_Result, aes(x = C, y = Accuracy)) +
     geom_line(size = 1.2) +
@@ -431,7 +440,6 @@ linSVM_tunePlot <- ggplot(linSVM_Tune_Result, aes(x = C, y = Accuracy)) +
           axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0)),
           axis.text.y = element_text(size = 20, margin = margin(t = 0, r = 0, b = 0, l = 10)),
           axis.title.x = element_text(size = 24, face = "bold"),
-          #axis.title.x = element_blank(),
           axis.title.y = element_text(size = 24, face = "bold"),
           axis.ticks.length = unit(.25, "cm"),
           axis.ticks = element_line(colour = "black"))
@@ -450,7 +458,7 @@ linSVM_Modell <- svm(cuadrantes ~ .,
 linSVM_yPred = predict(linSVM_Modell, newdata = surveyTestDF[-1])
 
 # Vorhersage linearer SVM Wahrscheinlichkeiten
-linSVM_yProbPred <- predict(linSVM_Modell, newdata = surveyTestDF[-1], probability=TRUE)
+linSVM_yProbPred <- predict(linSVM_Modell, newdata = surveyTestDF[-1], probability = TRUE)
 linSVM_yProbPred <- attr(linSVM_yProbPred, 'probabilities')
 linSVM_yProbPred <- linSVM_yProbPred[,listKlassen]
 
@@ -576,7 +584,7 @@ RBFSVM_ROC_4 <- roc(dummyDF[,4], RBFSVM_yProbPred[,4])
 RBFSVM_ROC_5 <- roc(dummyDF[,5], RBFSVM_yProbPred[,5])
 
 MLR_ROC <- ggroc(list(MLR_ROC_1,MLR_ROC_2,MLR_ROC_3,MLR_ROC_4, MLR_ROC_5), size = 1.5, legacy.axes = TRUE) +
-    theme_light() + geom_abline(slope=1, intercept=0, size = 1) +
+    theme_light() + geom_abline(slope = 1, intercept = 0, size = 1) +
     labs(y = "Richtig-Positiv-Rate",
          x = "Falsch-Positiv-Rate") + 
     scale_color_discrete("Armutskategorie",
@@ -606,10 +614,10 @@ MLR_ROC <- ggroc(list(MLR_ROC_1,MLR_ROC_2,MLR_ROC_3,MLR_ROC_4, MLR_ROC_5), size 
           strip.text = element_text(colour = "black", size = 16)) +
     guides(color = guide_legend(nrow = 2))
 
-#ggsave(plot = MLR_ROC, filename = "./Abbildungen/Abbildung_6_8.pdf", width = 297, height = 210, units = "mm")
+ggsave(plot = MLR_ROC, filename = "./Abbildungen/Abbildung_6_8.pdf", width = 297, height = 210, units = "mm")
 
 linSVM_ROC <- ggroc(list(linSVM_ROC_1,linSVM_ROC_2,linSVM_ROC_3,linSVM_ROC_4,linSVM_ROC_5), size = 1.5, legacy.axes = TRUE) +
-    theme_light() + geom_abline(slope=1, intercept=0, size = 1) +
+    theme_light() + geom_abline(slope = 1, intercept = 0, size = 1) +
     labs(y = "Richtig-Positiv-Rate",
          x = "Falsch-Positiv-Rate") + 
     scale_color_discrete("Armutskategorie",
@@ -639,11 +647,11 @@ linSVM_ROC <- ggroc(list(linSVM_ROC_1,linSVM_ROC_2,linSVM_ROC_3,linSVM_ROC_4,lin
           strip.text = element_text(colour = "black", size = 16)) +
     guides(color = guide_legend(nrow = 2))
 
-#ggsave(plot = linSVM_ROC, filename = "./Abbildungen/Abbildung_6_8_b.pdf", width = 297, height = 210, units = "mm")
+ggsave(plot = linSVM_ROC, filename = "./Abbildungen/Abbildung_6_8_b.pdf", width = 297, height = 210, units = "mm")
 
 
 RBFSVM_ROC <- ggroc(list(RBFSVM_ROC_1,RBFSVM_ROC_2,RBFSVM_ROC_3,RBFSVM_ROC_4,RBFSVM_ROC_5), size = 1.5, legacy.axes = TRUE) +
-    theme_light() + geom_abline(slope=1, intercept=0, size = 1) +
+    theme_light() + geom_abline(slope = 1, intercept = 0, size = 1) +
     labs(y = "Richtig-Positiv-Rate",
          x = "Falsch-Positiv-Rate") + 
     scale_color_discrete("Armutskategorie",
@@ -686,14 +694,58 @@ matchFile <- data.frame(matchFile[which(matchFile$nom_ent == "Guanajuato"),3:4])
 matchFile$mun <- as.factor(as.character(matchFile$mun))
 MLR_Karten <- data.frame(mun = censusDF$mun, pred = MLR_Karten)
 MLR_Karten <- inner_join(MLR_Karten, matchFile, by = 'mun')
+MLR_Karten <- MLR_Karten[,c(1,3,2)]
+rm(matchFile)
 
-library(maptools)
-library(stringr)
-Karte <- readShapePoly("./MEX_adm/MEX_adm2.shp")
+# Karte einlesen und matchen
+Karte <- readOGR("./MEX_adm/MEX_adm2.shp")
+#Karte <- readShapePoly("./MEX_adm/MEX_adm2.shp")
 Karte <- Karte[Karte@data$NAME_1 == "Guanajuato", ]
 plot(Karte)
 Karte@data$ID_2
 
+# Die Bezeichnung eines Bezirks muss gekürzt werden, damit das Matchen funktioniert
+MLR_Karten$nom_mun[which(MLR_Karten$nom_mun == unique(MLR_Karten$nom_mun)[14])] <- "Dolores Hidalgo"
+MLR_Karten$nom_mun[which(MLR_Karten$nom_mun == unique(MLR_Karten$nom_mun)[3])] <- "Allende"
+
+# Testen ob alle Bezirke gematcht sind
+matcher <- match(Karte@data$NAME_2, MLR_Karten$nom_mun)
+length(Karte@data$NAME_2[is.na(matcher)]) == 0
+
+# 
+MLR_Karten_Sum <- data.frame(MLR_Karten %>%
+                     group_by(mun, nom_mun, pred) %>%
+                     summarise(Anzahl = n()))
+
+MLR_Karten_Sum <- MLR_Karten_Sum[which(MLR_Karten_Sum$pred == 'extrem'),]
+
+#
+Karte.fort = fortify(Karte, region = "ID_2")
+Karte.fort = merge(Karte.fort, Karte@data, by.x = "id", by.y = "ID_2")
+
+# Erstelle mun für Karte
+Karte.fort$mun <- as.numeric(Karte.fort$id) - 20445
+Karte.fort$mun <- str_pad(as.character(Karte.fort$mun), 3, side = "left", pad = "0")
+
+Karte.centroids.f <- data.frame(long = coordinates(Karte)[, 1], 
+                                lat = coordinates(Karte)[, 2], 
+                                mun = str_pad(as.character(Karte@data$ID_2 - 20445),
+                                        3, side = "left", pad = "0"),
+                                dist = Karte@data$NAME_2) 
+
+Karte.centroids.f$Anzahl <- MLR_Karten_Sum$Anzahl
+
+df <- inner_join(MLR_Karten_Sum, Karte.fort, by = "mun")
+
+ggplot(df, aes(long, lat)) + 
+    ggtitle("") + 
+    geom_polygon(aes(group = mun, fill = Anzahl)) + coord_equal() +
+    theme(axis.ticks=element_blank(), 
+          axis.text = element_blank()) + 
+    geom_path(aes(group = mun)) +
+    labs(x = "", y = "") +
+    geom_text(data = Karte.centroids.f, 
+              aes(label = dist, x = long, y = lat, group = dist), size=3)
 ```
 
 ```{r Simulation Szenario 1}
