@@ -95,11 +95,9 @@ surveyDF$cuadrantes <- factor(surveyDF$cuadrantes, levels = c(1,2,3,4,5),
                                             'anfällig aufgrund Sozialmangel', 'keine'))
 listKlassen <- levels(surveyDF$cuadrantes)
 
-listDF <- c("surveyDF", "censusDF")
+listDF <- list(surveyDF, censusDF)
 
-for (i in c(1,2)) {
-    
-    df <- list(surveyDF, censusDF)[[i]]
+listDF <- lapply(listDF, function(df) {
     df$sexo <- factor(df$sexo, levels = c(0,1), labels = c('Weiblich','Männlich'))
     df$habl_ind <- factor(df$habl_ind, levels = c(0,1), labels = c('Nein','Ja'))
     df$asis_esc <- factor(df$asis_esc, levels = c(0,1), labels = c('Nein','Ja'))
@@ -116,14 +114,13 @@ for (i in c(1,2)) {
     df$rururb <- factor(df$rururb, levels = c(0,1), labels = c('Städtisch','Ländlich'))
     df$tam_loc <- factor(df$tam_loc, levels = c(1,2,3,4), labels = c('mehr als 100.000','15.000 bis 99.999', '2.500 bis 14.999', 'weniger als 2.500'))
     df$mun <- factor(df$mun)
-    
-    assign(listDF[i], df , envir = .GlobalEnv)
-}
+    return(df)
+})
 
-rm(df)
+surveyDF <- listDF[[1]]
+censusDF <- listDF[[2]]
+
 rm(listDF)
-rm(i)
-
 ```
 
 ```{r Diagramme, warning = FALSE}
@@ -389,7 +386,6 @@ colnames(dummyDF) <- listKlassen
 for (i in listKlassen) {
     dummyDF[,i] <- as.numeric(surveyTestDF[1] == i)
 }
-
 rm(i)
 ```
 
@@ -417,11 +413,14 @@ MLR_Accuracy <- round(sum(diag(MLR_ConfMat))/sum(MLR_ConfMat)*100,2)
 
 ```{r Modellierung Linear SVM}
 # Parameteroptimierung linearer SVM
-linSVM_Tune <- tune.svm(cuadrantes ~ ., data = surveyTrainDF, 
-                        kernel = 'linear', cost = 10^c(-5:6))
+# linSVM_Tune <- tune.svm(cuadrantes ~ ., data = surveyTrainDF, 
+#                         kernel = 'linear', cost = 10^c(-5:6))
+# linSVM_Tune_Result <- data.frame(C = linSVM_Tune$performances[,1], 
+#                                  Accuracy = 1 - linSVM_Tune$performances[,2])
 
-linSVM_Tune_Result <- data.frame(C = linSVM_Tune$performances[,1], 
-                                 Accuracy = 1 - linSVM_Tune$performances[,2])
+# Ergebnisse werden wegen hoher Laufzeit in eine csv-Datei gespeichert und eingelesen
+# write.csv(linSVM_Tune_Result, "./CSV-Ergebnisse/linSVM_Tune_Result.csv", row.names = FALSE)
+linSVM_Tune_Result <- read.csv("./CSV-Ergebnisse/linSVM_Tune_Result.csv")
 
 # Plot tune-Ergebnisse linearer SVM
 linSVM_tunePlot <- ggplot(linSVM_Tune_Result, aes(x = C, y = Accuracy)) +
@@ -451,8 +450,9 @@ linSVM_Modell <- svm(cuadrantes ~ .,
               data = surveyTrainDF,
               type = "C-classification",
               kernel = "linear",
-              cost = linSVM_Tune$best.parameters$cost,
-              probability = TRUE) #C = 10^4
+              #cost = linSVM_Tune$best.parameters$cost,
+              cost = 10^4,
+              probability = TRUE) 
 
 # Vorhersage linearer SVM
 linSVM_yPred = predict(linSVM_Modell, newdata = surveyTestDF[-1])
@@ -472,13 +472,17 @@ linSVM_Accuracy <- round(sum(diag(linSVM_ConfMat))*100/sum(linSVM_ConfMat),2)
 
 ```{r Modellierung RBF SVM}
 # Parameteroptimierung RBF SVM
-RBFSVM_Tune <- tune.svm(cuadrantes ~ ., data = surveyTrainDF,
-                 gamma = 10^(c(-4:2)), 
-                 cost = 10^(c(-2:7)))
+# RBFSVM_Tune <- tune.svm(cuadrantes ~ ., data = surveyTrainDF,
+#                  gamma = 10^(c(-4:2)), 
+#                  cost = 10^(c(-2:7)))
+# 
+# RBFSVM_Tune_Result <- data.frame(Gamma = RBFSVM_Tune$performances[,1],
+#                                  C = RBFSVM_Tune$performances[,2], 
+#                                  Accuracy = 1 - RBFSVM_Tune$performances[,3])
 
-RBFSVM_Tune_Result <- data.frame(Gamma = RBFSVM_Tune$performances[,1],
-                                 C = RBFSVM_Tune$performances[,2], 
-                                 Accuracy = 1 - RBFSVM_Tune$performances[,3])
+# Ergebnisse werden wegen hoher Laufzeit in eine csv-Datei gespeichert
+write.csv(RBFSVM_Tune, "./CSV-Ergebnisse/RBFSVM_Tune_Result.csv", row.names = FALSE)
+RBFSVM_Tune_Result <- read.csv("./CSV-Ergebnisse/RBFSVM_Tune_Result.csv")
 
 # Plot tune-Ergebnisse
 RBFSVM_tunePlot <- ggplot(RBFSVM_Tune_Result, 
@@ -486,7 +490,9 @@ RBFSVM_tunePlot <- ggplot(RBFSVM_Tune_Result,
     geom_tile(aes(fill = Accuracy), color = "white") +
     geom_text(aes(label = round(Accuracy,3)),
               size = 6) +
-    scale_fill_gradient(low = "#F8766D", high = "#00BA38") +
+    scale_fill_gradient(low = "#F8766D", high = "#00BA38",
+                        limits = c(min(RBFSVM_Tune_Result$Accuracy),
+                                   round(max(RBFSVM_Tune_Result$Accuracy),2))) +
     labs(x = "Gamma", y = "Cost") +
     scale_x_log10(breaks = 10^(-4:2),
                   labels = trans_format("log10", math_format(10^.x)),
@@ -501,9 +507,12 @@ RBFSVM_tunePlot <- ggplot(RBFSVM_Tune_Result,
           axis.title.x = element_text(size = 24, face = "bold"),
           axis.title.y = element_text(size = 24, face = "bold"),
           axis.ticks.length = unit(.25, "cm"),
-          axis.ticks = element_line(colour = "black"))
-
-RBFSVM_tunePlot
+          axis.ticks = element_line(colour = "black"),
+          legend.text = element_text(size = 18, margin = margin(b = 3)),
+          legend.title = element_text(size = 20, face = "bold"),
+          legend.background = element_blank(),
+          legend.box.background = element_rect(colour = "black"),
+          legend.key.height = unit(1.2,"cm"))
 
 ggsave(plot = RBFSVM_tunePlot, filename = "./Abbildungen/Abbildung_6_7_b.pdf", width = 297, height = 210, units = "mm")
 
@@ -512,8 +521,10 @@ RBFSVM_Modell <- svm(cuadrantes ~ .,
               data = surveyTrainDF,
               type = "C-classification",
               kernel = "radial", 
-              gamma = RBFSVM_Tune$best.parameters$gamma, 
-              cost = RBFSVM_Tune$best.parameters$cost,
+              #gamma = RBFSVM_Tune$best.parameters$gamma, 
+              #cost = RBFSVM_Tune$best.parameters$cost,
+              gamma = 0.1,
+              cost = 10,
               probability = TRUE)
 
 # Vorhersage RBF SVM
@@ -557,9 +568,7 @@ for (j in c(1,2,3)) { #für jede binConfMat
     rownames(temp_df[[i]]) <- c(i, "Rest")
     colnames(temp_df[[i]]) <- c(i, "Rest")
     
-    
     }
-    
     assign(list_binConfMat[j], temp_df , envir = .GlobalEnv)
 }
 
@@ -585,7 +594,8 @@ RBFSVM_ROC_5 <- roc(dummyDF[,5], RBFSVM_yProbPred[,5])
 
 MLR_ROC <- ggroc(list(MLR_ROC_1,MLR_ROC_2,MLR_ROC_3,MLR_ROC_4, MLR_ROC_5), size = 1.5, legacy.axes = TRUE) +
     theme_light() + geom_abline(slope = 1, intercept = 0, size = 1) +
-    labs(y = "Richtig-Positiv-Rate",
+    labs(#title = "MLR",
+         y = "Richtig-Positiv-Rate",
          x = "Falsch-Positiv-Rate") + 
     scale_color_discrete("Armutskategorie",
                         breaks = c("1", "2", "3", "4", "5"), 
@@ -594,7 +604,8 @@ MLR_ROC <- ggroc(list(MLR_ROC_1,MLR_ROC_2,MLR_ROC_3,MLR_ROC_4, MLR_ROC_5), size 
                                 "anfällige Armut aufgrund Sozialmangel", 
                                 "keine Armut")) + 
     coord_fixed() +
-    theme(axis.line.x = element_line(color = "black", size = 0.5),
+    theme(#plot.title = element_text(size = 24, face = "bold"),
+          axis.line.x = element_line(color = "black", size = 0.5),
           axis.line.y = element_line(color = "black", size = 0.5),
           axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 20, l = 0)),
           axis.text.y = element_text(size = 20, margin = margin(t = 0, r = 0, b = 0, l = 10)),
@@ -612,7 +623,7 @@ MLR_ROC <- ggroc(list(MLR_ROC_1,MLR_ROC_2,MLR_ROC_3,MLR_ROC_4, MLR_ROC_5), size 
           legend.key.width = unit(1.5,"line"),
           legend.key.height = unit(2,"line"),
           strip.text = element_text(colour = "black", size = 16)) +
-    guides(color = guide_legend(nrow = 2))
+    guides(color = guide_legend(nrow = 2)) 
 
 ggsave(plot = MLR_ROC, filename = "./Abbildungen/Abbildung_6_8.pdf", width = 297, height = 210, units = "mm")
 
@@ -672,7 +683,7 @@ RBFSVM_ROC <- ggroc(list(RBFSVM_ROC_1,RBFSVM_ROC_2,RBFSVM_ROC_3,RBFSVM_ROC_4,RBF
           legend.title = element_blank(),
           legend.margin = margin(c(0,10,0,0)),
           legend.text = element_text(size = 18),
-          legend.position = "bottom",
+          legend.position = "none",
           legend.background = element_blank(),
           legend.box.background = element_rect(colour = "black"),
           legend.box.margin = margin(c(5,0,5,0)),
@@ -686,44 +697,57 @@ ggsave(plot = RBFSVM_ROC, filename = "./Abbildungen/Abbildung_6_8_c.pdf", width 
 ```
 
 ```{Erstellung von Karten}
-# Match Daten
+# Census-Daten vorhersagen
+MLR_CensusPred <- predict(MLR_Final_AIC, newdata = censusDF)
+linSVM_CensusPred <- predict(linSVM_Modell, newdata = censusDF)
+RBFSVM_CensusPred <- predict(RBFSVM_Modell, newdata = censusDF)
+    
+# Match-Daten
 load("./MEX_adm/matchFile.RData")
-MLR_Karten <- predict(MLR_Final_AIC, newdata = censusDF)
 censusDF$mun <- str_pad(censusDF$mun, 3, side = "left", pad = "0")
 matchFile <- data.frame(matchFile[which(matchFile$nom_ent == "Guanajuato"),3:4])
-matchFile$mun <- as.factor(as.character(matchFile$mun))
-MLR_Karten <- data.frame(mun = censusDF$mun, pred = MLR_Karten)
-MLR_Karten <- inner_join(MLR_Karten, matchFile, by = 'mun')
-MLR_Karten <- MLR_Karten[,c(1,3,2)]
+
+list_CensusPred <- list(MLR_CensusPred, linSVM_CensusPred, RBFSVM_CensusPred)
+
+list_CensusPred <- lapply(list_CensusPred, function(x) {
+    x <- data.frame(mun = censusDF$mun, pred = x)
+    x$mun <- as.character(x$mun)
+    x <- inner_join(x, matchFile, by = 'mun')
+    x <- x[,c(1,3,2)]
+    }
+)
+
+MLR_CensusPred <- list_CensusPred[[1]]
+linSVM_CensusPred <- list_CensusPred[[2]]
+RBFSVM_CensusPred <- list_CensusPred[[3]]    
+
+
 rm(matchFile)
 
 # Karte einlesen und matchen
 Karte <- readOGR("./MEX_adm/MEX_adm2.shp")
 #Karte <- readShapePoly("./MEX_adm/MEX_adm2.shp")
 Karte <- Karte[Karte@data$NAME_1 == "Guanajuato", ]
-plot(Karte)
-Karte@data$ID_2
 
 # Die Bezeichnung eines Bezirks muss gekürzt werden, damit das Matchen funktioniert
-MLR_Karten$nom_mun[which(MLR_Karten$nom_mun == unique(MLR_Karten$nom_mun)[14])] <- "Dolores Hidalgo"
-MLR_Karten$nom_mun[which(MLR_Karten$nom_mun == unique(MLR_Karten$nom_mun)[3])] <- "Allende"
+MLR_CensusPred$nom_mun[which(MLR_CensusPred$nom_mun == unique(MLR_CensusPred$nom_mun)[14])] <- "Dolores Hidalgo"
+MLR_CensusPred$nom_mun[which(MLR_CensusPred$nom_mun == unique(MLR_CensusPred$nom_mun)[3])] <- "Allende"
 
-# Testen ob alle Bezirke gematcht sind
-matcher <- match(Karte@data$NAME_2, MLR_Karten$nom_mun)
+# Testen ob alle Bezirke gematcht werden können
+matcher <- match(Karte@data$NAME_2, MLR_CensusPred$nom_mun)
 length(Karte@data$NAME_2[is.na(matcher)]) == 0
 
-# 
-MLR_Karten_Sum <- data.frame(MLR_Karten %>%
+# Datenvorbereitung 
+MLR_Karten_Sum <- data.frame(MLR_CensusPred %>%
                      group_by(mun, nom_mun, pred) %>%
                      summarise(Anzahl = n()))
+totalDF <- as.data.frame(censusDF %>% group_by(mun) %>% summarise(Total = n()))
+MLR_Karten_Sum <- left_join(MLR_Karten_Sum, totalDF, by = "mun")
+MLR_Karten_Sum$Anteil <- round(MLR_Karten_Sum$Anzahl/MLR_Karten_Sum$Total,4)
 
-MLR_Karten_Sum <- MLR_Karten_Sum[which(MLR_Karten_Sum$pred == 'extrem'),]
-
-#
 Karte.fort = fortify(Karte, region = "ID_2")
 Karte.fort = merge(Karte.fort, Karte@data, by.x = "id", by.y = "ID_2")
 
-# Erstelle mun für Karte
 Karte.fort$mun <- as.numeric(Karte.fort$id) - 20445
 Karte.fort$mun <- str_pad(as.character(Karte.fort$mun), 3, side = "left", pad = "0")
 
@@ -732,20 +756,41 @@ Karte.centroids.f <- data.frame(long = coordinates(Karte)[, 1],
                                 mun = str_pad(as.character(Karte@data$ID_2 - 20445),
                                         3, side = "left", pad = "0"),
                                 dist = Karte@data$NAME_2) 
+Karte.centroids.f$mun <- as.character(Karte.centroids.f$mun)
 
-Karte.centroids.f$Anzahl <- MLR_Karten_Sum$Anzahl
+# MLR Karten für jede Klasse
+for (i in listKlassen) {
+    
+    kartenDF <- MLR_Karten_Sum[which(MLR_Karten_Sum$pred == i),]
+    
+    # Kennzahlen in Karte.centroids.f zuordnen
+    centroid <- left_join(Karte.centroids.f, kartenDF, by = "mun")
+    #centroid$Anzahl[which(is.na(centroid$Anzahl))] <- 0
+    
+    # Kennzahlen in Karte.fort zuordnen
+    fort <- left_join(Karte.fort, kartenDF, by = "mun")
+    #fort$Anzahl[which(is.na(fort$Anzahl))] <- 0
+    
+    # Karte erstellen
+    dfPlot <- ggplot(fort, aes(long, lat)) + 
+        ggtitle("") + 
+        geom_polygon(aes(group = mun, fill = Anteil)) + 
+        scale_fill_gradient(low = "#00BA38", high = "#F8766D") +
+        coord_equal() +
+        theme(axis.ticks=element_blank(), 
+              axis.text = element_blank()) + 
+        geom_path(aes(group = mun)) +
+        labs(x = "", y = "") +
+        geom_text(data = centroid, 
+                  aes(label = dist, x = long, y = lat, group = dist), size=3)
+    
+    ggsave(plot = dfPlot, filename = paste0("./Abbildungen/MLR_MexKarten_",i,".pdf"), 
+           width = 297, height = 210, units = "mm")
+    
+}
 
-df <- inner_join(MLR_Karten_Sum, Karte.fort, by = "mun")
 
-ggplot(df, aes(long, lat)) + 
-    ggtitle("") + 
-    geom_polygon(aes(group = mun, fill = Anzahl)) + coord_equal() +
-    theme(axis.ticks=element_blank(), 
-          axis.text = element_blank()) + 
-    geom_path(aes(group = mun)) +
-    labs(x = "", y = "") +
-    geom_text(data = Karte.centroids.f, 
-              aes(label = dist, x = long, y = lat, group = dist), size=3)
+
 ```
 
 ```{r Simulation Szenario 1}
