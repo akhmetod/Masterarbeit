@@ -25,6 +25,7 @@ library(pROC)
 library(stringr)
 library(rgdal)
 library(gpclib)
+#library(rgeos)
 library(maptools)
 options(xtable.floating = FALSE)
 options(xtable.timestamp = "")
@@ -697,54 +698,72 @@ ggsave(plot = RBFSVM_ROC, filename = "./Abbildungen/Abbildung_6_8_c.pdf", width 
 ```
 
 ```{Erstellung von Karten}
-# Census-Daten vorhersagen
+# Census-Daten vorhersagen (MLR, linSVM, RBFSVM)
 MLR_CensusPred <- predict(MLR_Final_AIC, newdata = censusDF)
 linSVM_CensusPred <- predict(linSVM_Modell, newdata = censusDF)
 RBFSVM_CensusPred <- predict(RBFSVM_Modell, newdata = censusDF)
     
-# Match-Daten
+# Match-Daten miteinbeziehen (MLR, linSVM, RBFSVM)
 load("./MEX_adm/matchFile.RData")
 censusDF$mun <- str_pad(censusDF$mun, 3, side = "left", pad = "0")
 matchFile <- data.frame(matchFile[which(matchFile$nom_ent == "Guanajuato"),3:4])
 
 list_CensusPred <- list(MLR_CensusPred, linSVM_CensusPred, RBFSVM_CensusPred)
-
-list_CensusPred <- lapply(list_CensusPred, function(x) {
-    x <- data.frame(mun = censusDF$mun, pred = x)
-    x$mun <- as.character(x$mun)
-    x <- inner_join(x, matchFile, by = 'mun')
-    x <- x[,c(1,3,2)]
+list_CensusPred <- lapply(list_CensusPred, function(df) {
+    df <- data.frame(mun = censusDF$mun, pred = df)
+    df$mun <- as.character(df$mun)
+    df <- inner_join(df, matchFile, by = 'mun')
+    df <- df[,c(1,3,2)]
     }
 )
-
 MLR_CensusPred <- list_CensusPred[[1]]
 linSVM_CensusPred <- list_CensusPred[[2]]
 RBFSVM_CensusPred <- list_CensusPred[[3]]    
 
-
 rm(matchFile)
 
-# Karte einlesen und matchen
+# Die Bezeichnung von 2 Gemeinden muss gekürzt werden, damit das Matchen funktioniert  (MLR, linSVM, RBFSVM)
+list_CensusPred <- list(MLR_CensusPred, linSVM_CensusPred, RBFSVM_CensusPred)
+list_CensusPred <- lapply(list_CensusPred, function(df) {
+    df$nom_mun[which(df$nom_mun == unique(df$nom_mun)[14])] <- "Dolores Hidalgo"
+    df$nom_mun[which(df$nom_mun == unique(df$nom_mun)[3])] <- "Allende"
+    return(df)
+    }
+)
+MLR_CensusPred <- list_CensusPred[[1]]
+linSVM_CensusPred <- list_CensusPred[[2]]
+RBFSVM_CensusPred <- list_CensusPred[[3]] 
+
+# Karte einlesen und nach Bundesstaat filtern
 Karte <- readOGR("./MEX_adm/MEX_adm2.shp")
 #Karte <- readShapePoly("./MEX_adm/MEX_adm2.shp")
 Karte <- Karte[Karte@data$NAME_1 == "Guanajuato", ]
 
-# Die Bezeichnung eines Bezirks muss gekürzt werden, damit das Matchen funktioniert
-MLR_CensusPred$nom_mun[which(MLR_CensusPred$nom_mun == unique(MLR_CensusPred$nom_mun)[14])] <- "Dolores Hidalgo"
-MLR_CensusPred$nom_mun[which(MLR_CensusPred$nom_mun == unique(MLR_CensusPred$nom_mun)[3])] <- "Allende"
+# Testen ob alle Städte gematcht werden können  (MLR, linSVM, RBFSVM)
+list_CensusPred <- list(MLR_CensusPred, linSVM_CensusPred, RBFSVM_CensusPred)
+lapply(list_CensusPred, function(df) {
+    matcher <- match(Karte@data$NAME_2, df$nom_mun)
+    return(length(Karte@data$NAME_2[is.na(matcher)]) == 0)
+    }
+)
 
-# Testen ob alle Bezirke gematcht werden können
-matcher <- match(Karte@data$NAME_2, MLR_CensusPred$nom_mun)
-length(Karte@data$NAME_2[is.na(matcher)]) == 0
+# Prognosedaten für Kartenerstellung zusammenfassen (MLR, linSVM, RBFSVM)
+list_CensusPred <- list(MLR_CensusPred, linSVM_CensusPred, RBFSVM_CensusPred)
+list_CensusPred <- lapply(list_CensusPred, function(df) {
+    df <- data.frame(df %>%
+                         group_by(mun, nom_mun, pred) %>%
+                         summarise(Anzahl = n()))
+    totalDF <- as.data.frame(censusDF %>% group_by(mun) %>% summarise(Total = n()))
+    totalDF <- left_join(df, totalDF, by = "mun")
+    totalDF$Anteil <- round(totalDF$Anzahl/totalDF$Total,4)
+    return(totalDF)
+    }
+)
+MLR_CensusPred <- list_CensusPred[[1]]
+linSVM_CensusPred <- list_CensusPred[[2]]
+RBFSVM_CensusPred <- list_CensusPred[[3]] 
 
-# Datenvorbereitung 
-MLR_Karten_Sum <- data.frame(MLR_CensusPred %>%
-                     group_by(mun, nom_mun, pred) %>%
-                     summarise(Anzahl = n()))
-totalDF <- as.data.frame(censusDF %>% group_by(mun) %>% summarise(Total = n()))
-MLR_Karten_Sum <- left_join(MLR_Karten_Sum, totalDF, by = "mun")
-MLR_Karten_Sum$Anteil <- round(MLR_Karten_Sum$Anzahl/MLR_Karten_Sum$Total,4)
-
+# Kartendaten vorbereiten
 Karte.fort = fortify(Karte, region = "ID_2")
 Karte.fort = merge(Karte.fort, Karte@data, by.x = "id", by.y = "ID_2")
 
@@ -757,274 +776,70 @@ Karte.centroids.f <- data.frame(long = coordinates(Karte)[, 1],
                                         3, side = "left", pad = "0"),
                                 dist = Karte@data$NAME_2) 
 Karte.centroids.f$mun <- as.character(Karte.centroids.f$mun)
+Karte.centroids.f$dist <- as.character(Karte.centroids.f$dist)
+Karte.centroids.f$dist[c(24, 25, 29, 31, 35)] <- c('Pueblo\nNuevo',
+                                            'Purísima\ndel\nRincón',
+                                            'San Diego de la Unión',
+                                            'San\nFrancisco\ndel\nRincón',
+                                             'Santa\nCruz\nde\nJuventino\nRosas')
+                                        
+# Karten für jede Klasse (MLR, linSVM, RBFSVM)
+list_CensusPred <- list(MLR_CensusPred, linSVM_CensusPred, RBFSVM_CensusPred)
 
-# MLR Karten für jede Klasse
-for (i in listKlassen) {
+for (j in c(1:3)) {
     
-    kartenDF <- MLR_Karten_Sum[which(MLR_Karten_Sum$pred == i),]
+    df <- list_CensusPred[[j]]
     
-    # Kennzahlen in Karte.centroids.f zuordnen
-    centroid <- left_join(Karte.centroids.f, kartenDF, by = "mun")
-    #centroid$Anzahl[which(is.na(centroid$Anzahl))] <- 0
+    dfName <- c("MLR", "linSVM", "RBFSVM")[j]
+        
+    #name <- strsplit(deparse(substitute(MLR_CensusPred)), '_')[[1]][1]
     
-    # Kennzahlen in Karte.fort zuordnen
-    fort <- left_join(Karte.fort, kartenDF, by = "mun")
-    #fort$Anzahl[which(is.na(fort$Anzahl))] <- 0
+    for (i in listKlassen) {
+
+        kartenDF <- df[which(df$pred == i),]
+        
+        # Kennzahlen in Karte.centroids.f zuordnen
+        centroid <- left_join(Karte.centroids.f, kartenDF, by = "mun")
+        #centroid$Anzahl[which(is.na(centroid$Anzahl))] <- 0
+        
+        # Kennzahlen in Karte.fort zuordnen
+        fort <- left_join(Karte.fort, kartenDF, by = "mun")
+        #fort$Anzahl[which(is.na(fort$Anzahl))] <- 0
+        
+        # Karte erstellen
+        dfPlot <- ggplot(fort, aes(long, lat)) + 
+            ggtitle("") + 
+            geom_polygon(aes(group = mun, fill = Anteil)) + 
+            scale_fill_gradient(paste0("Anteil der Kategorie y = ", which(listKlassen == i)),
+                               low = "#00BA38", high = "#F8766D") +
+            coord_equal() +
+            theme(axis.ticks=element_blank(), 
+                  axis.text = element_blank(),
+                  legend.position = c(0.88,0.1),
+                  legend.direction = "horizontal", 
+                  legend.title = element_text(size = 12, face = "bold"),
+                  legend.background = element_rect(colour = NA, fill = NA),
+                  legend.text = element_text(size = 10,
+                                             face = "bold",
+                                             margin = margin(t = 4))) + 
+            geom_path(aes(group = mun)) +
+            labs(x = "", y = "") +
+            geom_text(data = centroid, 
+                      aes(label = dist, x = long, y = lat, group = dist), size=3) +
+            guides(fill = guide_colorbar(title.position = "top",
+                                         barwidth = 10))
+        
+        ggsave(plot = dfPlot, 
+               filename = paste0("./Abbildungen/", dfName, "_MexKarten_",i,".pdf"), 
+               width = 297, height = 210, units = "mm")
     
-    # Karte erstellen
-    dfPlot <- ggplot(fort, aes(long, lat)) + 
-        ggtitle("") + 
-        geom_polygon(aes(group = mun, fill = Anteil)) + 
-        scale_fill_gradient(low = "#00BA38", high = "#F8766D") +
-        coord_equal() +
-        theme(axis.ticks=element_blank(), 
-              axis.text = element_blank()) + 
-        geom_path(aes(group = mun)) +
-        labs(x = "", y = "") +
-        geom_text(data = centroid, 
-                  aes(label = dist, x = long, y = lat, group = dist), size=3)
-    
-    ggsave(plot = dfPlot, filename = paste0("./Abbildungen/MLR_MexKarten_",i,".pdf"), 
-           width = 297, height = 210, units = "mm")
-    
+    }
+
 }
-
-
 
 ```
 
-```{r Simulation Szenario 1}
-# SVM Parameteroptimierung anhand einem Paar Sample - Population
-trainDF <- popList[[1]]$smp
-validDF <- popList[[1]]$pop
 
-S1_linSVM_Tune <- tune.svm(y ~ X_1 + X_2, data = trainDF, kernel = 'linear',
-             cost = 10^(c(-5:5)))
-
-S1_RBFSVM_Tune <- tune.svm(y ~ X_1 + X_2, data = trainDF,
-             gamma = 10^(c(-3:3)),
-             cost = 10^(c(-3:3)))
-
-# MLR und SVM für jedes Paar Sample - Population
-S1_MLR_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
-S1_linSVM_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
-S1_RBFSVM_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
-
-# S1_MLR_RmVar <- data.frame(Fold = integer(), rmVar = integer())
-# S1_linSVM_RmVar <- data.frame(Fold = integer(), rmVar = integer())
-# S1_RBFSVM_RmVar <- data.frame(Fold = integer(), rmVar = integer())
-
-S1_MLR_ConfMat <- list()
-S1_linSVM_ConfMat <- list()
-S1_RBFSVM_ConfMat <- list()
-
-for (i in c(1:simRuns)) {
-    # Trainings- und Validierungsdaten
-    trainDF <- popList[[i]]$smp # Sample als Trainingsdaten
-    validDF <- popList[[i]]$pop # Population als Validierungsdaten
-    
-    # MLR Trainieren
-    S1_MLR_FULL <- multinom(y ~ X_1 + X_2, data = trainDF)
-    S1_MLR_AIC <- step(S1_MLR_FULL, direction = 'backward', trace = 0)
-    # MLR Vorhersagen
-    S1_MLR_yPred <- predict(S1_MLR_AIC, newdata = validDF[-1])
-    # MLR Confusion Matrix
-    S1_MLR_ConfMat = table(true = validDF[,1], pred = S1_MLR_yPred)
-    # MLR Genauigkeit
-    S1_MLR_Accuracy[i,] <- c(i, sum(diag(S1_MLR_ConfMat))/sum(S1_MLR_ConfMat))
-    
-    # linSVM Trainieren
-    S1_linSVM_Modell <- svm(y ~ .,
-                  data = trainDF,
-                  type = "C-classification",
-                  kernel = "radial",
-                  cost = S1_linSVM_Tune$best.parameters$cost)
-    # linSVM Vorhersage
-    S1_linSVM_yPred = predict(S1_linSVM_Modell, newdata = validDF[-1])
-    # linSVM Confusion Matrix
-    S1_linSVM_ConfMat = table(true = validDF[,1], pred = S1_linSVM_yPred)
-    # linSVM Genauigkeit
-    S1_linSVM_Accuracy[i,] <- c(i,sum(diag(S1_linSVM_ConfMat))/sum(S1_linSVM_ConfMat))
-    
-    # RBFSVM Trainieren
-    S1_RBFSVM_Modell <- svm(y ~ .,
-                  data = trainDF,
-                  type = "C-classification",
-                  kernel = "radial",
-                  gamma = S1_RBFSVM_Tune$best.parameters$gamma, 
-                  cost = S1_RBFSVM_Tune$best.parameters$cost)
-    # RBFSVM Vorhersage
-    S1_RBFSVM_yPred = predict(S1_RBFSVM_Modell, newdata = validDF[-1])
-    # RBFSVM Confusion Matrix
-    S1_RBFSVM_ConfMat = table(true = validDF[,1], pred = S1_RBFSVM_yPred)
-    # RBFSVM Genauigkeit
-    S1_RBFSVM_Accuracy[i,] <- c(i,sum(diag(S1_RBFSVM_ConfMat))/sum(S1_RBFSVM_ConfMat))
-   
-}
-
-S1_Accuracy <- data.frame(Accuracy = c(S1_MLR_Accuracy$Accuracy,
-                                       S1_linSVM_Accuracy$Accuracy,
-                                       S1_RBFSVM_Accuracy$Accuracy),
-                          ID = c(rep("MLR", 100), 
-                                 rep("linSVM", 100), 
-                                 rep("RBFSVM", 100)))
-
-abb610 <- ggplot(S1_Accuracy, aes(x = ID, y = Accuracy, color = ID)) + 
-    geom_boxplot() +
-    theme_light() +
-    scale_x_discrete(limits = c('MLR', 'linSVM', 'RBFSVM')) +
-    #scale_y_continuous(limits = c(min(S2_Accuracy$Accuracy), max(S2_Accuracy$Accuracy))) +
-    scale_color_discrete(guide = FALSE) +
-    theme(#plot.title = element_text(size = 28, face = "bold"),
-          axis.line.x = element_line(color = "black", size = 0.5),
-          axis.line.y = element_line(color = "black", size = 0.5),
-          axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0)),
-          axis.text.y = element_text(size = 20, margin = margin(t = 0, r = 0, b = 0, l = 10)),
-          #axis.title.x = element_text(size = 24, face = "bold"),
-          axis.title.x = element_blank(),
-          axis.title.y = element_text(size = 24, face = "bold"),
-          axis.ticks.length = unit(.25, "cm"),
-          axis.ticks = element_line(colour = "black"),
-          legend.title = element_blank())
-
-ggsave(plot = abb610, filename = "./Abbildungen/Abbildung_6_10.pdf", width = 297, height = 210, units = "mm")
-```
-
-```{r Simulation Szenario 2}
-load("/Users/XuanSon/Desktop/complexSimData.Rdata")
-
-# SVM Parameteroptimierung anhand einem Paar Sample - Population
-trainDF <- popList[[1]]$smp
-validDF <- popList[[1]]$pop
-
-S2_linSVM_Tune <- tune.svm(y ~ . - intecept , data = trainDF, kernel = 'linear',
-             cost = 10^(c(-3:3)))
-
-S2_RBFSVM_Tune <- tune.svm(y ~ . - intecept, data = trainDF,
-             gamma = 10^(c(-3:3)),
-             cost = 10^(c(-3:3)))
-
-# S2_polySVM_Tune <- tune.svm(y ~ . - intecept, data = trainDF, kernel = 'polynomial', 
-#              gamma = 10^(c(-3:3)),
-#              coef0 = 10^(c(1:3)),
-#              degree = 2:5,
-#              cost = 10^(c(-3:3))
-#              )
-
-S2_sigSVM_Tune <- tune.svm(y ~ . - intecept, data = trainDF, kernel = 'sigmoid',
-             gamma = 10^(c(-5:3)),
-             coef0 = 10^(c(-5:3)),
-             cost = 10^(c(-3:3))
-             )
-
-# MLR und SVM für jedes Paar Sample - Population
-S2_MLR_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
-S2_linSVM_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
-S2_RBFSVM_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
-S2_sigSVM_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
-
-# S1_MLR_RmVar <- data.frame(Fold = integer(), rmVar = integer())
-# S1_linSVM_RmVar <- data.frame(Fold = integer(), rmVar = integer())
-# S1_RBFSVM_RmVar <- data.frame(Fold = integer(), rmVar = integer())
-
-S2_MLR_ConfMat <- list()
-S2_linSVM_ConfMat <- list()
-S2_RBFSVM_ConfMat <- list()
-S2_sigSVM_ConfMat <- list()
-
-for (i in c(1:200)) {
-    # Trainings- und Validierungsdaten
-    trainDF <- popList[[i]]$smp # Sample als Trainingsdaten
-    validDF <- popList[[i]]$pop # Population als Validierungsdaten
-    
-    trainDF[,c('y', 'X_5', 'X_6')] <- lapply(trainDF[,c('y', 'X_5', 'X_6')],
-                                             function(x) factor(x))
-    validDF[,c('y', 'X_5', 'X_6')] <- lapply(validDF[,c('y', 'X_5', 'X_6')],
-                                             function(x) factor(x))
-    
-    # MLR Trainieren
-    S2_MLR_FULL <- multinom(y ~ . - intecept, data = trainDF)
-    S2_MLR_AIC <- step(S2_MLR_FULL, direction = 'backward', trace = 0)
-    # MLR Vorhersagen
-    S2_MLR_yPred <- predict(S2_MLR_AIC, newdata = validDF[-1])
-    # MLR Confusion Matrix
-    S2_MLR_ConfMat = table(true = validDF[,1], pred = S2_MLR_yPred)
-    # MLR Genauigkeit
-    S2_MLR_Accuracy[i,] <- c(i, sum(diag(S2_MLR_ConfMat))/sum(S2_MLR_ConfMat))
-    
-    # linSVM Trainieren
-    S2_linSVM_Modell <- svm(y ~ . - intecept,
-                  data = trainDF,
-                  type = "C-classification",
-                  kernel = "radial",
-                  cost = S2_linSVM_Tune$best.parameters$cost)
-    # linSVM Vorhersage
-    S2_linSVM_yPred = predict(S2_linSVM_Modell, newdata = validDF[-1])
-    # linSVM Confusion Matrix
-    S2_linSVM_ConfMat = table(true = validDF[,1], pred = S2_linSVM_yPred)
-    # linSVM Genauigkeit
-    S2_linSVM_Accuracy[i,] <- c(i,sum(diag(S2_linSVM_ConfMat))/sum(S2_linSVM_ConfMat))
-    
-    # RBFSVM Trainieren
-    S2_RBFSVM_Modell <- svm(y ~ . - intecept,
-                  data = trainDF,
-                  type = "C-classification",
-                  kernel = "radial",
-                  gamma = S2_RBFSVM_Tune$best.parameters$gamma, 
-                  cost = S2_RBFSVM_Tune$best.parameters$cost)
-    # RBFSVM Vorhersage
-    S2_RBFSVM_yPred = predict(S2_RBFSVM_Modell, newdata = validDF[-1])
-    # RBFSVM Confusion Matrix
-    S2_RBFSVM_ConfMat = table(true = validDF[,1], pred = S2_RBFSVM_yPred)
-    # RBFSVM Genauigkeit
-    S2_RBFSVM_Accuracy[i,] <- c(i,sum(diag(S2_RBFSVM_ConfMat))/sum(S2_RBFSVM_ConfMat))
-   
-    # sigSVM Trainieren
-    S2_sigSVM_Modell <- svm(y ~ . - intecept,
-                  data = trainDF,
-                  type = "C-classification",
-                  kernel = "sigmoid",
-                  cost = S2_sigSVM_Tune$best.parameters$cost,
-                  gamma = S2_sigSVM_Tune$best.parameters$gamma,
-                  coef0 = S2_sigSVM_Tune$best.parameters$coef0)
-    # sigSVM Vorhersage
-    S2_sigSVM_yPred = predict(S2_sigSVM_Modell, newdata = validDF[-1])
-    # sigSVM Confusion Matrix
-    S2_sigSVM_ConfMat = table(true = validDF[,1], pred = S2_sigSVM_yPred)
-    # sigSVM Genauigkeit
-    S2_sigSVM_Accuracy[i,] <- c(i,sum(diag(S2_sigSVM_ConfMat))/sum(S2_sigSVM_ConfMat))
-}
-
-S2_Accuracy <- data.frame(Accuracy = c(S2_MLR_Accuracy$Accuracy,
-                                       S2_linSVM_Accuracy$Accuracy,
-                                       S2_RBFSVM_Accuracy$Accuracy,
-                                       S2_sigSVM_Accuracy$Accuracy),
-                          ID = c(rep("MLR", 200), 
-                                 rep("linSVM", 200),
-                                 rep("RBFSVM", 200),
-                                 rep("sigSVM", 200)))
-
-abb611 <- ggplot(S2_Accuracy, aes(x = ID, y = Accuracy, color = ID)) + 
-    geom_boxplot() +
-    theme_light() +
-    scale_x_discrete(limits = c('MLR', 'linSVM', 'RBFSVM', 'sigSVM')) +
-    #scale_y_continuous(limits = c(min(S2_Accuracy$Accuracy), max(S2_Accuracy$Accuracy))) +
-    scale_color_discrete(guide = FALSE) +
-    theme(#plot.title = element_text(size = 28, face = "bold"),
-          axis.line.x = element_line(color = "black", size = 0.5),
-          axis.line.y = element_line(color = "black", size = 0.5),
-          axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0)),
-          axis.text.y = element_text(size = 20, margin = margin(t = 0, r = 0, b = 0, l = 10)),
-          #axis.title.x = element_text(size = 24, face = "bold"),
-          axis.title.x = element_blank(),
-          axis.title.y = element_text(size = 24, face = "bold"),
-          axis.ticks.length = unit(.25, "cm"),
-          axis.ticks = element_line(colour = "black"),
-          legend.title = element_blank())
-
-ggsave(plot = abb611, filename = "./Abbildungen/Abbildung_6_11a.pdf", width = 297, height = 210, units = "mm")
-
-```
 
 
 
