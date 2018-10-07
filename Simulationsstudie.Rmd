@@ -39,11 +39,11 @@ trainDF <- popList[[1]]$smp
 validDF <- popList[[1]]$pop
 
 S1_linSVM_Tune <- tune.svm(y ~ X_1 + X_2, data = trainDF, kernel = 'linear',
-             cost = 10^(c(-3:3)))
+             cost = 10^(c(-6:2)))
 
 S1_RBFSVM_Tune <- tune.svm(y ~ X_1 + X_2, data = trainDF,
-             gamma = 10^(c(-3:3)),
-             cost = 10^(c(-3:3)))
+             gamma = 10^(c(-2:5)),
+             cost = 10^(c(-2:5)))
 
 # MLR und SVM für jedes Paar Sample - Population
 S1_MLR_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
@@ -117,9 +117,9 @@ for (i in c(1:simRuns)) {
 S1_Accuracy <- data.frame(Accuracy = c(S1_MLR_Accuracy$Accuracy,
                                        S1_linSVM_Accuracy$Accuracy,
                                        S1_RBFSVM_Accuracy$Accuracy),
-                          ID = c(rep("MLR", 5), 
-                                 rep("linSVM", 5), 
-                                 rep("RBFSVM", 5)))
+                          ID = c(rep("MLR", simRuns), 
+                                 rep("linSVM", simRuns), 
+                                 rep("RBFSVM", simRuns)))
 
 abb610 <- ggplot(S1_Accuracy, aes(x = ID, y = Accuracy, color = ID)) + 
     geom_boxplot() +

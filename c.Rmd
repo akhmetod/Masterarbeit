@@ -444,6 +444,8 @@ linSVM_tunePlot <- ggplot(linSVM_Tune_Result, aes(x = C, y = Accuracy)) +
           axis.ticks.length = unit(.25, "cm"),
           axis.ticks = element_line(colour = "black"))
 
+linSVM_tunePlot
+
 ggsave(plot = linSVM_tunePlot, filename = "./Abbildungen/Abbildung_6_7_a.pdf", width = 297, height = 210, units = "mm")
 
 # Trainiere linearer SVM
@@ -452,7 +454,7 @@ linSVM_Modell <- svm(cuadrantes ~ .,
               type = "C-classification",
               kernel = "linear",
               #cost = linSVM_Tune$best.parameters$cost,
-              cost = 10^4,
+              cost = 10^-1,
               probability = TRUE) 
 
 # Vorhersage linearer SVM
@@ -482,7 +484,7 @@ linSVM_Accuracy <- round(sum(diag(linSVM_ConfMat))*100/sum(linSVM_ConfMat),2)
 #                                  Accuracy = 1 - RBFSVM_Tune$performances[,3])
 
 # Ergebnisse werden wegen hoher Laufzeit in eine csv-Datei gespeichert
-write.csv(RBFSVM_Tune, "./CSV-Ergebnisse/RBFSVM_Tune_Result.csv", row.names = FALSE)
+# write.csv(RBFSVM_Tune, "./CSV-Ergebnisse/RBFSVM_Tune_Result.csv", row.names = FALSE)
 RBFSVM_Tune_Result <- read.csv("./CSV-Ergebnisse/RBFSVM_Tune_Result.csv")
 
 # Plot tune-Ergebnisse
