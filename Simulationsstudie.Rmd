@@ -39,7 +39,7 @@ trainDF <- popList[[1]]$smp
 validDF <- popList[[1]]$pop
 
 S1_linSVM_Tune <- tune.svm(y ~ X_1 + X_2, data = trainDF, kernel = 'linear',
-             cost = 10^(c(-5:5)))
+             cost = 10^(c(-3:3)))
 
 S1_RBFSVM_Tune <- tune.svm(y ~ X_1 + X_2, data = trainDF,
              gamma = 10^(c(-3:3)),
@@ -63,8 +63,11 @@ for (i in c(1:simRuns)) {
     trainDF <- popList[[i]]$smp # Sample als Trainingsdaten
     validDF <- popList[[i]]$pop # Population als Validierungsdaten
     
+    trainDF$y <- factor(trainDF$y)
+    validDF$y <- factor(validDF$y)
+    
     # S1_linSVM_Tune <- tune.svm(y ~ X_1 + X_2, data = trainDF, kernel = 'linear',
-    #              cost = 10^(c(-5:5)))
+    #              cost = 10^(c(-3:3)))
     # 
     # S1_RBFSVM_Tune <- tune.svm(y ~ X_1 + X_2, data = trainDF,
     #              gamma = 10^(c(-3:3)),
@@ -81,7 +84,7 @@ for (i in c(1:simRuns)) {
     S1_MLR_Accuracy[i,] <- c(i, sum(diag(S1_MLR_ConfMat))/sum(S1_MLR_ConfMat))
     
     # linSVM Trainieren
-    S1_linSVM_Modell <- svm(y ~ .,
+    S1_linSVM_Modell <- svm(y ~ X_1 + X_2,
                   data = trainDF,
                   type = "C-classification",
                   kernel = "radial",
@@ -114,9 +117,9 @@ for (i in c(1:simRuns)) {
 S1_Accuracy <- data.frame(Accuracy = c(S1_MLR_Accuracy$Accuracy,
                                        S1_linSVM_Accuracy$Accuracy,
                                        S1_RBFSVM_Accuracy$Accuracy),
-                          ID = c(rep("MLR", 200), 
-                                 rep("linSVM", 200), 
-                                 rep("RBFSVM", 200)))
+                          ID = c(rep("MLR", 5), 
+                                 rep("linSVM", 5), 
+                                 rep("RBFSVM", 5)))
 
 abb610 <- ggplot(S1_Accuracy, aes(x = ID, y = Accuracy, color = ID)) + 
     geom_boxplot() +
