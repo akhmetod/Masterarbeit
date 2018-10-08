@@ -141,7 +141,7 @@ ggsave(plot = abb610, filename = "./Abbildungen/Abbildung_6_10.pdf", width = 297
 ```
 
 ```{r Simulation Szenario 2}
-load("/Users/XuanSon/Desktop/complexSimData.Rdata")
+load("./Simulationsdaten/complexSimData.Rdata")
 
 # SVM Parameteroptimierung anhand einem Paar Sample - Population
 trainDF <- popList[[1]]$smp
@@ -161,17 +161,10 @@ S2_RBFSVM_Tune <- tune.svm(y ~ . - intecept, data = trainDF,
 #              cost = 10^(c(-3:3))
 #              )
 
-S2_sigSVM_Tune <- tune.svm(y ~ . - intecept, data = trainDF, kernel = 'sigmoid',
-             gamma = 10^(c(-5:3)),
-             coef0 = 10^(c(-5:3)),
-             cost = 10^(c(-3:3))
-             )
-
 # MLR und SVM für jedes Paar Sample - Population
 S2_MLR_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
 S2_linSVM_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
 S2_RBFSVM_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
-S2_sigSVM_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
 
 # S1_MLR_RmVar <- data.frame(Fold = integer(), rmVar = integer())
 # S1_linSVM_RmVar <- data.frame(Fold = integer(), rmVar = integer())
@@ -180,9 +173,8 @@ S2_sigSVM_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
 S2_MLR_ConfMat <- list()
 S2_linSVM_ConfMat <- list()
 S2_RBFSVM_ConfMat <- list()
-S2_sigSVM_ConfMat <- list()
 
-for (i in c(1:200)) {
+for (i in c(1:simRuns)) {
     # Trainings- und Validierungsdaten
     trainDF <- popList[[i]]$smp # Sample als Trainingsdaten
     validDF <- popList[[i]]$pop # Population als Validierungsdaten
@@ -206,8 +198,9 @@ for (i in c(1:200)) {
     S2_linSVM_Modell <- svm(y ~ . - intecept,
                   data = trainDF,
                   type = "C-classification",
-                  kernel = "radial",
-                  cost = S2_linSVM_Tune$best.parameters$cost)
+                  kernel = "linear",
+                  cost = S2_linSVM_Tune$best.parameters$cost,
+                  probability = TRUE)
     # linSVM Vorhersage
     S2_linSVM_yPred = predict(S2_linSVM_Modell, newdata = validDF[-1])
     # linSVM Confusion Matrix
@@ -221,7 +214,8 @@ for (i in c(1:200)) {
                   type = "C-classification",
                   kernel = "radial",
                   gamma = S2_RBFSVM_Tune$best.parameters$gamma, 
-                  cost = S2_RBFSVM_Tune$best.parameters$cost)
+                  cost = S2_RBFSVM_Tune$best.parameters$cost,
+                  probability = TRUE)
     # RBFSVM Vorhersage
     S2_RBFSVM_yPred = predict(S2_RBFSVM_Modell, newdata = validDF[-1])
     # RBFSVM Confusion Matrix
@@ -229,30 +223,14 @@ for (i in c(1:200)) {
     # RBFSVM Genauigkeit
     S2_RBFSVM_Accuracy[i,] <- c(i,sum(diag(S2_RBFSVM_ConfMat))/sum(S2_RBFSVM_ConfMat))
    
-    # sigSVM Trainieren
-    S2_sigSVM_Modell <- svm(y ~ . - intecept,
-                  data = trainDF,
-                  type = "C-classification",
-                  kernel = "sigmoid",
-                  cost = S2_sigSVM_Tune$best.parameters$cost,
-                  gamma = S2_sigSVM_Tune$best.parameters$gamma,
-                  coef0 = S2_sigSVM_Tune$best.parameters$coef0)
-    # sigSVM Vorhersage
-    S2_sigSVM_yPred = predict(S2_sigSVM_Modell, newdata = validDF[-1])
-    # sigSVM Confusion Matrix
-    S2_sigSVM_ConfMat = table(true = validDF[,1], pred = S2_sigSVM_yPred)
-    # sigSVM Genauigkeit
-    S2_sigSVM_Accuracy[i,] <- c(i,sum(diag(S2_sigSVM_ConfMat))/sum(S2_sigSVM_ConfMat))
 }
 
 S2_Accuracy <- data.frame(Accuracy = c(S2_MLR_Accuracy$Accuracy,
                                        S2_linSVM_Accuracy$Accuracy,
-                                       S2_RBFSVM_Accuracy$Accuracy,
-                                       S2_sigSVM_Accuracy$Accuracy),
-                          ID = c(rep("MLR", 200), 
-                                 rep("linSVM", 200),
-                                 rep("RBFSVM", 200),
-                                 rep("sigSVM", 200)))
+                                       S2_RBFSVM_Accuracy$Accuracy),
+                          ID = c(rep("MLR", simRuns), 
+                                 rep("linSVM", simRuns),
+                                 rep("RBFSVM", simRuns)))
 
 abb611 <- ggplot(S2_Accuracy, aes(x = ID, y = Accuracy, color = ID)) + 
     geom_boxplot() +
