@@ -45,14 +45,12 @@ S1_RBFSVM_Tune <- tune.svm(y ~ X_1 + X_2, data = trainDF,
              gamma = 10^(c(-2:5)),
              cost = 10^(c(-2:5)))
 
+summary(S1_linSVM_Tune)
+
 # MLR und SVM für jedes Paar Sample - Population
 S1_MLR_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
 S1_linSVM_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
 S1_RBFSVM_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
-
-# S1_MLR_RmVar <- data.frame(Fold = integer(), rmVar = integer())
-# S1_linSVM_RmVar <- data.frame(Fold = integer(), rmVar = integer())
-# S1_RBFSVM_RmVar <- data.frame(Fold = integer(), rmVar = integer())
 
 S1_MLR_ConfMat <- list()
 S1_linSVM_ConfMat <- list()
