@@ -141,7 +141,7 @@ ggsave(plot = abb610, filename = "./Abbildungen/Abbildung_6_10.pdf", width = 297
 ```
 
 ```{r Simulation Szenario 2}
-load("./Simulationsdaten/complexSimData.Rdata")
+load("/Users/XuanSon/Desktop/complexSimData.Rdata")
 
 # SVM Parameteroptimierung anhand einem Paar Sample - Population
 trainDF <- popList[[1]]$smp
