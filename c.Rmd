@@ -381,7 +381,7 @@ rm(split)
 # folds <- createFolds(surveyDF$cuadrantes, k = 10, list = TRUE, returnTrain = FALSE)
 
 # Transformiere die Zielvariable in Dummy-Variablen (in Testdaten)
-dummyDF <- matrix(nrow = nrow(surveyTestDF), ncol = nlevels(surveyDF$cuadrantes))
+dummyDF <- matrix(nrow = nrow(surveyTestDF), ncol = nlevels(surveyTestDF$cuadrantes))
 colnames(dummyDF) <- listKlassen
 
 for (i in listKlassen) {
@@ -414,7 +414,7 @@ MLR_Accuracy <- round(sum(diag(MLR_ConfMat))/sum(MLR_ConfMat)*100,2)
 
 ```{r Modellierung Linear SVM}
 # Parameteroptimierung linearer SVM
-# linSVM_Tune <- tune.svm(cuadrantes ~ ., data = surveyTrainDF, 
+# linSVM_Tune <- tune.svm(cuadrantes ~ ., data = surveyTrainDF,
 #                         kernel = 'linear', cost = 10^c(-5:6))
 # linSVM_Tune_Result <- data.frame(C = linSVM_Tune$performances[,1], 
 #                                  Accuracy = 1 - linSVM_Tune$performances[,2])
@@ -444,8 +444,6 @@ linSVM_tunePlot <- ggplot(linSVM_Tune_Result, aes(x = C, y = Accuracy)) +
           axis.ticks.length = unit(.25, "cm"),
           axis.ticks = element_line(colour = "black"))
 
-linSVM_tunePlot
-
 ggsave(plot = linSVM_tunePlot, filename = "./Abbildungen/Abbildung_6_7_a.pdf", width = 297, height = 210, units = "mm")
 
 # Trainiere linearer SVM
@@ -454,7 +452,7 @@ linSVM_Modell <- svm(cuadrantes ~ .,
               type = "C-classification",
               kernel = "linear",
               #cost = linSVM_Tune$best.parameters$cost,
-              cost = 10^-1,
+              cost = 10^4,
               probability = TRUE) 
 
 # Vorhersage linearer SVM
@@ -476,7 +474,7 @@ linSVM_Accuracy <- round(sum(diag(linSVM_ConfMat))*100/sum(linSVM_ConfMat),2)
 ```{r Modellierung RBF SVM}
 # Parameteroptimierung RBF SVM
 # RBFSVM_Tune <- tune.svm(cuadrantes ~ ., data = surveyTrainDF,
-#                  gamma = 10^(c(-4:2)), 
+#                  gamma = 10^(c(-4:2)),
 #                  cost = 10^(c(-2:7)))
 # 
 # RBFSVM_Tune_Result <- data.frame(Gamma = RBFSVM_Tune$performances[,1],
@@ -575,7 +573,6 @@ for (j in c(1,2,3)) { #für jede binConfMat
     assign(list_binConfMat[j], temp_df , envir = .GlobalEnv)
 }
 
-
 # Erstellung ROC Kurven
 MLR_ROC_1 <- roc(dummyDF[,1], MLR_yProbPred[,1])
 MLR_ROC_2 <- roc(dummyDF[,2], MLR_yProbPred[,2])
@@ -583,17 +580,29 @@ MLR_ROC_3 <- roc(dummyDF[,3], MLR_yProbPred[,3])
 MLR_ROC_4 <- roc(dummyDF[,4], MLR_yProbPred[,4])
 MLR_ROC_5 <- roc(dummyDF[,5], MLR_yProbPred[,5])
 
+MLR_AUC <- round(as.numeric(lapply(list(MLR_ROC_1,MLR_ROC_2,MLR_ROC_3,MLR_ROC_4,MLR_ROC_5),
+                 function(x) auc(x))),4)
+round(mean(MLR_AUC),4)
+
 linSVM_ROC_1 <- roc(dummyDF[,1], linSVM_yProbPred[,1])
 linSVM_ROC_2 <- roc(dummyDF[,2], linSVM_yProbPred[,2])
 linSVM_ROC_3 <- roc(dummyDF[,3], linSVM_yProbPred[,3])
 linSVM_ROC_4 <- roc(dummyDF[,4], linSVM_yProbPred[,4])
 linSVM_ROC_5 <- roc(dummyDF[,5], linSVM_yProbPred[,5])
 
+linSVM_AUC <- round(as.numeric(lapply(list(linSVM_ROC_1,linSVM_ROC_2,linSVM_ROC_3,
+                                           linSVM_ROC_4,linSVM_ROC_5), function(x) auc(x))),4)
+mean(linSVM_AUC)
+
 RBFSVM_ROC_1 <- roc(dummyDF[,1], RBFSVM_yProbPred[,1])
 RBFSVM_ROC_2 <- roc(dummyDF[,2], RBFSVM_yProbPred[,2])
 RBFSVM_ROC_3 <- roc(dummyDF[,3], RBFSVM_yProbPred[,3])
 RBFSVM_ROC_4 <- roc(dummyDF[,4], RBFSVM_yProbPred[,4])
 RBFSVM_ROC_5 <- roc(dummyDF[,5], RBFSVM_yProbPred[,5])
+
+RBFSVM_AUC <- round(as.numeric(lapply(list(RBFSVM_ROC_1,RBFSVM_ROC_2,RBFSVM_ROC_3,
+                                           RBFSVM_ROC_4,RBFSVM_ROC_5), function(x) auc(x))),4)
+mean(RBFSVM_AUC)
 
 MLR_ROC <- ggroc(list(MLR_ROC_1,MLR_ROC_2,MLR_ROC_3,MLR_ROC_4, MLR_ROC_5), size = 1.5, legacy.axes = TRUE) +
     theme_light() + geom_abline(slope = 1, intercept = 0, size = 1) +
@@ -628,7 +637,7 @@ MLR_ROC <- ggroc(list(MLR_ROC_1,MLR_ROC_2,MLR_ROC_3,MLR_ROC_4, MLR_ROC_5), size 
           strip.text = element_text(colour = "black", size = 16)) +
     guides(color = guide_legend(nrow = 2)) 
 
-ggsave(plot = MLR_ROC, filename = "./Abbildungen/Abbildung_6_8.pdf", width = 297, height = 210, units = "mm")
+ggsave(plot = MLR_ROC, filename = "./Abbildungen/Abbildung_6_8_a.pdf", width = 297, height = 210, units = "mm")
 
 linSVM_ROC <- ggroc(list(linSVM_ROC_1,linSVM_ROC_2,linSVM_ROC_3,linSVM_ROC_4,linSVM_ROC_5), size = 1.5, legacy.axes = TRUE) +
     theme_light() + geom_abline(slope = 1, intercept = 0, size = 1) +
@@ -779,11 +788,11 @@ Karte.centroids.f <- data.frame(long = coordinates(Karte)[, 1],
                                 dist = Karte@data$NAME_2) 
 Karte.centroids.f$mun <- as.character(Karte.centroids.f$mun)
 Karte.centroids.f$dist <- as.character(Karte.centroids.f$dist)
-Karte.centroids.f$dist[c(24, 25, 29, 31, 35)] <- c('Pueblo\nNuevo',
-                                            'Purísima\ndel\nRincón',
-                                            'San Diego de la Unión',
-                                            'San\nFrancisco\ndel\nRincón',
-                                             'Santa\nCruz\nde\nJuventino\nRosas')
+# Karte.centroids.f$dist[c(24, 25, 29, 31, 35)] <- c('Pueblo\nNuevo',
+#                                             'Purísima\ndel\nRincón',
+#                                             'San Diego de la Unión',
+#                                             'San\nFrancisco\ndel\nRincón',
+#                                              'Santa\nCruz\nde\nJuventino\nRosas')
                                         
 # Karten für jede Klasse (MLR, linSVM, RBFSVM)
 list_CensusPred <- list(MLR_CensusPred, linSVM_CensusPred, RBFSVM_CensusPred)
@@ -812,12 +821,18 @@ for (j in c(1:3)) {
         dfPlot <- ggplot(fort, aes(long, lat)) + 
             ggtitle("") + 
             geom_polygon(aes(group = mun, fill = Anteil)) + 
-            scale_fill_gradient(paste0("Anteil der Kategorie y = ", which(listKlassen == i)),
-                               low = "#00BA38", high = "#F8766D") +
+            scale_fill_gradientn(paste0("Anteil der Kategorie y = ", which(listKlassen == i)),
+                               #low = "#00BA38", high = "#F8766D"
+                               #,limits = c(0,1)
+                                colours=c('#00B0F6','#00BF7D','yellow','red'), 
+                                limits=c(0,1), 
+                                oob = scales::squish
+                               ) +
             coord_equal() +
             theme(axis.ticks=element_blank(), 
                   axis.text = element_blank(),
-                  legend.position = c(0.88,0.1),
+                  #legend.position = c(0.88,0.1),
+                  legend.position = "bottom",
                   legend.direction = "horizontal", 
                   legend.title = element_text(size = 12, face = "bold"),
                   legend.background = element_rect(colour = NA, fill = NA),
@@ -827,12 +842,13 @@ for (j in c(1:3)) {
             geom_path(aes(group = mun)) +
             labs(x = "", y = "") +
             geom_text(data = centroid, 
-                      aes(label = dist, x = long, y = lat, group = dist), size=3) +
+                      aes(label = mun, x = long, y = lat, group = dist), size=3) +
             guides(fill = guide_colorbar(title.position = "top",
-                                         barwidth = 10))
+                                         barwidth = 10)) 
         
-        ggsave(plot = dfPlot, 
-               filename = paste0("./Abbildungen/", dfName, "_MexKarten_",i,".pdf"), 
+            ggsave(plot = dfPlot, 
+               filename = paste0("./Abbildungen/", dfName, "_MexKarten_",
+                                 which(listKlassen == i),".pdf"), 
                width = 297, height = 210, units = "mm")
     
     }
