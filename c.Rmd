@@ -630,7 +630,7 @@ MLR_ROC <- ggroc(list(MLR_ROC_1,MLR_ROC_2,MLR_ROC_3,MLR_ROC_4, MLR_ROC_5), size 
           legend.text = element_text(size = 18),
           legend.position = "none",
           legend.background = element_blank(),
-          legend.box.background = element_rect(colour = "black"),
+          #legend.box.background = element_rect(colour = "black"),
           legend.box.margin = margin(c(5,0,5,0)),
           legend.key.width = unit(1.5,"line"),
           legend.key.height = unit(2,"line"),
@@ -731,7 +731,6 @@ MLR_CensusPred <- list_CensusPred[[1]]
 linSVM_CensusPred <- list_CensusPred[[2]]
 RBFSVM_CensusPred <- list_CensusPred[[3]]    
 
-rm(matchFile)
 
 # Die Bezeichnung von 2 Gemeinden muss gekürzt werden, damit das Matchen funktioniert  (MLR, linSVM, RBFSVM)
 list_CensusPred <- list(MLR_CensusPred, linSVM_CensusPred, RBFSVM_CensusPred)
@@ -746,7 +745,7 @@ linSVM_CensusPred <- list_CensusPred[[2]]
 RBFSVM_CensusPred <- list_CensusPred[[3]] 
 
 # Karte einlesen und nach Bundesstaat filtern
-Karte <- readOGR("./MEX_adm/MEX_adm2.shp")
+Karte <- readOGR("./MEX_adm/MEX_adm2.shp", encoding = "UTF-8")
 #Karte <- readShapePoly("./MEX_adm/MEX_adm2.shp")
 Karte <- Karte[Karte@data$NAME_1 == "Guanajuato", ]
 
@@ -788,6 +787,8 @@ Karte.centroids.f <- data.frame(long = coordinates(Karte)[, 1],
                                 dist = Karte@data$NAME_2) 
 Karte.centroids.f$mun <- as.character(Karte.centroids.f$mun)
 Karte.centroids.f$dist <- as.character(Karte.centroids.f$dist)
+Karte.centroids.f[28,c(1,2)] <- c(-100.88, 20.2) 
+Karte.centroids.f[46,c(1,2)] <- c(-101.242,20.2) 
 # Karte.centroids.f$dist[c(24, 25, 29, 31, 35)] <- c('Pueblo\nNuevo',
 #                                             'Purísima\ndel\nRincón',
 #                                             'San Diego de la Unión',
@@ -821,30 +822,32 @@ for (j in c(1:3)) {
         dfPlot <- ggplot(fort, aes(long, lat)) + 
             ggtitle("") + 
             geom_polygon(aes(group = mun, fill = Anteil)) + 
-            scale_fill_gradientn(paste0("Anteil der Kategorie y = ", which(listKlassen == i)),
-                               #low = "#00BA38", high = "#F8766D"
-                               #,limits = c(0,1)
-                                colours=c('#00B0F6','#00BF7D','yellow','red'), 
-                                limits=c(0,1), 
-                                oob = scales::squish
-                               ) +
+            scale_fill_gradientn("",
+                                colours=c('#00A9FF','#7CAE00', "yellow", 
+                                          "#F8766D", "#FF61CC", 'red'), 
+                                limits=c(0,1),
+                                breaks = seq(0.0,1.0,0.1),
+                                labels = paste0(seq(0,100,10),' %'),
+                                oob = scales::squish) +
             coord_equal() +
-            theme(axis.ticks=element_blank(), 
+            theme(plot.title = element_text(size = 18, face = "bold"),
+                  axis.ticks=element_blank(), 
                   axis.text = element_blank(),
                   #legend.position = c(0.88,0.1),
-                  legend.position = "bottom",
-                  legend.direction = "horizontal", 
-                  legend.title = element_text(size = 12, face = "bold"),
+                  legend.position = "right",
+                  legend.direction = "vertical", 
+                  legend.title = element_text(size = 18, face = "bold"),
                   legend.background = element_rect(colour = NA, fill = NA),
                   legend.text = element_text(size = 10,
                                              face = "bold",
                                              margin = margin(t = 4))) + 
             geom_path(aes(group = mun)) +
-            labs(x = "", y = "") +
+            labs(x = "", y = "", title = paste0(dfName, " - Geschätzter Anteil der Armutsklasse: y = ",i)) +
             geom_text(data = centroid, 
-                      aes(label = mun, x = long, y = lat, group = dist), size=3) +
+                      aes(label = mun, x = long, y = lat, group = dist), size=4) +
             guides(fill = guide_colorbar(title.position = "top",
-                                         barwidth = 10)) 
+                                         barwidth = 4,
+                                         barheight = 26)) 
         
             ggsave(plot = dfPlot, 
                filename = paste0("./Abbildungen/", dfName, "_MexKarten_",
@@ -853,6 +856,86 @@ for (j in c(1:3)) {
     
     }
 
+}
+
+
+# Testdaten plotten, um Anteil von Genauigkeit nach Region zu kontrollieren
+surveyTestDF$mun <- str_pad(as.character(surveyTestDF$mun), 3, side = "left", pad = "0")
+MLR_PredNachRegion <- data.frame(mun = surveyTestDF[which(names(surveyTestDF) == "mun")],
+           true = surveyTestDF[,1], pred = MLR_yPred)
+linSVM_PredNachRegion <- data.frame(mun = surveyTestDF[which(names(surveyTestDF) == "mun")],
+           true = surveyTestDF[,1], pred = linSVM_yPred)
+RBFSVM_PredNachRegion <- data.frame(mun = surveyTestDF[which(names(surveyTestDF) == "mun")],
+           true = surveyTestDF[,1], pred = RBFSVM_yPred)
+
+# Prognosedaten für Kartenerstellung zusammenfassen (MLR, linSVM, RBFSVM)
+list_CensusPredNachRegion <- list(MLR_PredNachRegion, linSVM_PredNachRegion, RBFSVM_PredNachRegion)
+list_CensusPredNachRegion <- lapply(list_CensusPredNachRegion, function(df) {
+
+    df <- data.frame(df %>%
+                         group_by(mun) %>%
+                         summarise(Anteil = sum(true == pred)/n()))
+    return(df)
+    }
+)
+MLR_PredNachRegion <- list_CensusPredNachRegion[[1]]
+linSVM_PredNachRegion <- list_CensusPredNachRegion[[2]]
+RBFSVM_PredNachRegion <- list_CensusPredNachRegion[[3]] 
+
+# Karten für jede Klasse (MLR, linSVM, RBFSVM)
+list_CensusPredNachRegion <- list(MLR_PredNachRegion, linSVM_PredNachRegion, RBFSVM_PredNachRegion)
+
+
+for (j in c(1:3)) {
+    
+    df <- list_CensusPredNachRegion[[j]]
+    
+    dfName <- c("MLR", "linSVM", "RBFSVM")[j]
+    
+    # Kennzahlen in Karte.centroids.f zuordnen
+    centroid <- left_join(Karte.centroids.f, df, by = "mun")
+    #centroid$Anzahl[which(is.na(centroid$Anzahl))] <- 0
+    
+    # Kennzahlen in Karte.fort zuordnen
+    fort <- left_join(Karte.fort, df, by = "mun")
+    #fort$Anzahl[which(is.na(fort$Anzahl))] <- 0
+    
+    # Karte erstellen
+    dfPlot <- ggplot(fort, aes(long, lat)) + 
+        ggtitle("") + 
+        geom_polygon(aes(group = mun, fill = Anteil)) + 
+        scale_fill_gradientn("",
+                            colours=c('#00A9FF','#7CAE00', "yellow", 
+                                      "#F8766D", "#FF61CC", 'red'), 
+                            limits=c(0,1),
+                            breaks = seq(0.0,1.0,0.1),
+                            labels = paste0(seq(0,100,10),' %'),
+                            oob = scales::squish) +
+        coord_equal() +
+        theme(plot.title = element_text(size = 18, face = "bold"),
+              axis.ticks=element_blank(), 
+              axis.text = element_blank(),
+              #legend.position = c(0.88,0.1),
+              legend.position = "right",
+              legend.direction = "vertical", 
+              legend.title = element_text(size = 18, face = "bold"),
+              legend.background = element_rect(colour = NA, fill = NA),
+              legend.text = element_text(size = 10,
+                                         face = "bold",
+                                         margin = margin(t = 4))) + 
+        geom_path(aes(group = mun)) +
+        labs(x = "", y = "", title = paste0(dfName, " - Schätzgenauigkeit nach Regionen")) +
+        geom_text(data = centroid, 
+                  aes(label = mun, x = long, y = lat, group = dist), size=4) +
+        guides(fill = guide_colorbar(title.position = "top",
+                                     barwidth = 4,
+                                     barheight = 26)) 
+    
+        ggsave(plot = dfPlot, 
+           filename = paste0("./Abbildungen/", dfName, "_AccuracyByRegion.pdf"), 
+           width = 297, height = 210, units = "mm")
+    
+    
 }
 
 ```

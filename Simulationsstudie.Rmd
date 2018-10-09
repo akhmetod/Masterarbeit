@@ -35,8 +35,8 @@ options(xtable.timestamp = "")
 source('./Simulationsdaten/simpleSzenario.R')
 
 # SVM Parameteroptimierung anhand einem Paar Sample - Population
-trainDF <- popList[[1]]$smp
-validDF <- popList[[1]]$pop
+trainDF <- popList[[26]]$smp
+validDF <- popList[[26]]$pop
 
 # Zielvariable faktorisieren
 trainDF$y <- as.factor(trainDF$y)
@@ -50,206 +50,14 @@ S1_linSVM_Tune <- tune.svm(y ~ ., data = trainDF,
                            kernel = 'linear',
                            cost = 10^(c(-6:3)))
 
+
 S1_RBFSVM_Tune <- tune.svm(y ~ ., data = trainDF,
                            kernel = 'radial',
                            gamma = 10^(c(-2:5)),
                            cost = 10^(c(-2:5)))
 
-S1_optimalLinSVMCost <- S1_linSVM_Tune$best.parameters$cost
-S1_optimalRBFSVMGamma <- S1_RBFSVM_Tune$best.parameters$gamma
-S1_optimalRBFSVMCost <- S1_RBFSVM_Tune$best.parameters$cost
-
-# MLR Trainieren
-S1_MLR_FULL <- multinom(y ~ X_1 + X_2, data = trainDF)
-S1_MLR_AIC <- step(S1_MLR_FULL, direction = 'backward', trace = 0)
-# MLR Vorhersagen
-S1_MLR_yPred <- predict(S1_MLR_AIC, newdata = validDF[-1])
-S1_MLR_yProbPred <- predict(S1_MLR_AIC, newdata = validDF[-1], type = "probs")
-# #all(as.numeric(S1_MLR_yPred) == apply(S1_MLR_yProbPred, 1, function(x) which.max(x)))
-# # MLR Confusion Matrix
-# S1_MLR_ConfMat = table(true = validDF[,1], pred = S1_MLR_yPred)
-# # MLR Genauigkeit
-# S1_MLR_Accuracy[i,] <- c(i, sum(diag(S1_MLR_ConfMat))/sum(S1_MLR_ConfMat))
-
-# linSVM Trainieren
-S1_linSVM_Modell <- svm(y ~ X_1 + X_2,
-              data = trainDF,
-              type = "C-classification",
-              kernel = "linear",
-              cost = 10,
-              probability = TRUE)
-# linSVM Vorhersage
-S1_linSVM_yPred = predict(S1_linSVM_Modell, newdata = validDF[-1])
-# linSVM Wahrscheinlichkeit vorhersagen
-S1_linSVM_yProbPred <- predict(S1_linSVM_Modell, newdata = validDF[-1], probability = TRUE)
-S1_linSVM_yProbPred <- attr(S1_linSVM_yProbPred, 'probabilities')
-S1_linSVM_yProbPred <- S1_linSVM_yProbPred[ , c("1","2","3","4")] 
-# all(as.numeric(S1_linSVM_yPred) == apply(S1_linSVM_yProbPred, 1, function(x) which.max(x)))
-# # linSVM Confusion Matrix
-# S1_linSVM_ConfMat = table(true = validDF[,1], pred = S1_linSVM_yPred)
-# # linSVM Genauigkeit
-# S1_linSVM_Accuracy[i,] <- c(i,sum(diag(S1_linSVM_ConfMat))/sum(S1_linSVM_ConfMat))
-
-# RBFSVM Trainieren
-S1_RBFSVM_Modell <- svm(y ~ X_1 + X_2,
-              data = trainDF,
-              type = "C-classification",
-              kernel = "radial",
-              gamma = 0.1, 
-              cost = 100,
-              probability = TRUE)
-# RBFSVM Vorhersage
-S1_RBFSVM_yPred = predict(S1_RBFSVM_Modell, newdata = validDF[-1])
-# RBFSVM Wahrscheinlichkeit Vorhersage
-S1_RBFSVM_yProbPred = predict(S1_RBFSVM_Modell, newdata = validDF[-1], probability = TRUE)
-S1_RBFSVM_yProbPred <- attr(S1_RBFSVM_yProbPred, 'probabilities')
-S1_RBFSVM_yProbPred <- S1_RBFSVM_yProbPred[ , c("1","2","3","4")] 
-# # RBFSVM Confusion Matrix
-# S1_RBFSVM_ConfMat = table(true = validDF[,1], pred = S1_RBFSVM_yPred)
-# # RBFSVM Genauigkeit
-# S1_RBFSVM_Accuracy[i,] <- c(i,sum(diag(S1_RBFSVM_ConfMat))/sum(S1_RBFSVM_ConfMat))
-
-# Beispielshafte ROC
-# Daten vorbereiten
-# Transformiere die Zielvariable in Dummy-Variablen (in Populationsdaten)
-S1_dummyDF <- matrix(NA, nrow = nrow(validDF), ncol = nlevels(validDF$y))
-
-for (i in c(1:nlevels(validDF$y))) {
-    S1_dummyDF[,i] <- as.numeric(validDF[1] == i)
-
-}
-rm(i)
-
-S1_MLR_ROC_1 <- roc(S1_dummyDF[,1], S1_MLR_yProbPred[,1])
-S1_MLR_ROC_2 <- roc(S1_dummyDF[,2], S1_MLR_yProbPred[,2])
-S1_MLR_ROC_3 <- roc(S1_dummyDF[,3], S1_MLR_yProbPred[,3])
-S1_MLR_ROC_4 <- roc(S1_dummyDF[,4], S1_MLR_yProbPred[,4])
-
-S1_MLR_AUC <- round(as.numeric(lapply(list(S1_MLR_ROC_1,S1_MLR_ROC_2,
-                                           S1_MLR_ROC_3,S1_MLR_ROC_4),
-                                        function(x) auc(x))),4)
-S1_MLR_AUC_Mean <- round(mean(S1_MLR_AUC),4)
-
-S1_linSVM_ROC_1 <- roc(S1_dummyDF[,1], S1_linSVM_yProbPred[,1])
-S1_linSVM_ROC_2 <- roc(S1_dummyDF[,2], S1_linSVM_yProbPred[,2])
-S1_linSVM_ROC_3 <- roc(S1_dummyDF[,3], S1_linSVM_yProbPred[,3])
-S1_linSVM_ROC_4 <- roc(S1_dummyDF[,4], S1_linSVM_yProbPred[,4])
-
-S1_linSVM_AUC <- round(as.numeric(lapply(list(S1_linSVM_ROC_1,S1_linSVM_ROC_2,
-                                              S1_linSVM_ROC_3, S1_linSVM_ROC_4), 
-                                         function(x) auc(x))),4)
-S1_linSVM_AUC_Mean <- mean(S1_linSVM_AUC)
-
-S1_RBFSVM_ROC_1 <- roc(S1_dummyDF[,1], S1_RBFSVM_yProbPred[,1])
-S1_RBFSVM_ROC_2 <- roc(S1_dummyDF[,2], S1_RBFSVM_yProbPred[,2])
-S1_RBFSVM_ROC_3 <- roc(S1_dummyDF[,3], S1_RBFSVM_yProbPred[,3])
-S1_RBFSVM_ROC_4 <- roc(S1_dummyDF[,4], S1_RBFSVM_yProbPred[,4])
-
-S1_RBFSVM_AUC <- round(as.numeric(lapply(list(S1_RBFSVM_ROC_1,S1_RBFSVM_ROC_2,
-                                              S1_RBFSVM_ROC_3, S1_RBFSVM_ROC_4), 
-                                         function(x) auc(x))),4)
-S1_RBFSVM_AUC_Mean <- mean(S1_RBFSVM_AUC)
-
-S1_MLR_ROC <- ggroc(list(S1_MLR_ROC_1,S1_MLR_ROC_2,S1_MLR_ROC_3,S1_MLR_ROC_4), 
-                    size = 1.5, legacy.axes = TRUE) +
-    theme_light() + geom_abline(slope = 1, intercept = 0, size = 1) +
-    labs(#title = "MLR",
-         y = "Richtig-Positiv-Rate",
-         x = "Falsch-Positiv-Rate") + 
-    scale_color_discrete("y",
-                        breaks = c("1", "2", "3", "4")) + 
-    coord_fixed() +
-    theme(#plot.title = element_text(size = 24, face = "bold"),
-          axis.line.x = element_line(color = "black", size = 0.5),
-          axis.line.y = element_line(color = "black", size = 0.5),
-          axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 20, l = 0)),
-          axis.text.y = element_text(size = 20, margin = margin(t = 0, r = 0, b = 0, l = 10)),
-          axis.ticks.length = unit(.25, "cm"),
-          axis.ticks = element_line(colour = "black"),
-          axis.title.x = element_text(size = 24, face = "bold"),
-          axis.title.y = element_text(size = 24, face = "bold"),
-          legend.title = element_blank(),
-          legend.margin = margin(c(0,10,0,0)),
-          legend.text = element_text(size = 18),
-          legend.position = "none",
-          legend.background = element_blank(),
-          legend.box.background = element_rect(colour = "black"),
-          legend.box.margin = margin(c(5,0,5,0)),
-          legend.key.width = unit(1.5,"line"),
-          legend.key.height = unit(2,"line"),
-          strip.text = element_text(colour = "black", size = 16)) +
-    guides(color = guide_legend(nrow = 2)) 
-
-ggsave(plot = S1_MLR_ROC, filename = "./Abbildungen/Abbildung_6_9_a.pdf", 
-       width = 297, height = 210, units = "mm")
-
-S1_linSVM_ROC <- ggroc(list(S1_linSVM_ROC_1,S1_linSVM_ROC_2,
-                            S1_linSVM_ROC_3,S1_linSVM_ROC_4), 
-                       size = 1.5, legacy.axes = TRUE) +
-    theme_light() + geom_abline(slope = 1, intercept = 0, size = 1) +
-    labs(y = "Richtig-Positiv-Rate",
-         x = "Falsch-Positiv-Rate") + 
-    scale_color_discrete("Armutskategorie",
-                        breaks = c("1", "2", "3", "4")) + 
-    coord_fixed() +
-    theme(axis.line.x = element_line(color = "black", size = 0.5),
-          axis.line.y = element_line(color = "black", size = 0.5),
-          axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 20, l = 0)),
-          axis.text.y = element_text(size = 20, margin = margin(t = 0, r = 0, b = 0, l = 10)),
-          axis.ticks.length = unit(.25, "cm"),
-          axis.ticks = element_line(colour = "black"),
-          axis.title.x = element_text(size = 24, face = "bold"),
-          axis.title.y = element_text(size = 24, face = "bold"),
-          legend.title = element_blank(),
-          legend.margin = margin(c(0,10,0,0)),
-          legend.text = element_text(size = 18),
-          legend.position = "none",
-          legend.background = element_blank(),
-          legend.box.background = element_rect(colour = "black"),
-          legend.box.margin = margin(c(5,0,5,0)),
-          legend.key.width = unit(1.5,"line"),
-          legend.key.height = unit(2,"line"),
-          strip.text = element_text(colour = "black", size = 16)) +
-    guides(color = guide_legend(nrow = 2))
-
-ggsave(plot = S1_linSVM_ROC, filename = "./Abbildungen/Abbildung_6_9_b.pdf", 
-       width = 297, height = 210, units = "mm")
-
-
-S1_RBFSVM_ROC <- ggroc(list(S1_RBFSVM_ROC_1,S1_RBFSVM_ROC_2,S1_RBFSVM_ROC_3,S1_RBFSVM_ROC_4),
-                       size = 1.5, legacy.axes = TRUE) +
-    theme_light() + geom_abline(slope = 1, intercept = 0, size = 1) +
-    labs(y = "Richtig-Positiv-Rate",
-         x = "Falsch-Positiv-Rate") + 
-    scale_color_discrete("Armutskategorie",
-                        breaks = c("1", "2", "3", "4")) + 
-    coord_fixed() +
-    theme(axis.line.x = element_line(color = "black", size = 0.5),
-          axis.line.y = element_line(color = "black", size = 0.5),
-          axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 20, l = 0)),
-          axis.text.y = element_text(size = 20, margin = margin(t = 0, r = 0, b = 0, l = 10)),
-          axis.ticks.length = unit(.25, "cm"),
-          axis.ticks = element_line(colour = "black"),
-          axis.title.x = element_text(size = 24, face = "bold"),
-          axis.title.y = element_text(size = 24, face = "bold"),
-          legend.title = element_blank(),
-          legend.margin = margin(c(0,10,0,0)),
-          legend.text = element_text(size = 18),
-          legend.position = "none",
-          legend.background = element_blank(),
-          legend.box.background = element_rect(colour = "black"),
-          legend.box.margin = margin(c(5,0,5,0)),
-          legend.key.width = unit(1.5,"line"),
-          legend.key.height = unit(2,"line"),
-          strip.text = element_text(colour = "black", size = 16)) +
-    guides(color = guide_legend(nrow = 2))
-
-ggsave(plot = S1_RBFSVM_ROC, filename = "./Abbildungen/Abbildung_6_9_c.pdf", 
-       width = 297, height = 210, units = "mm")
-
 
 # Modellierung für Szenario 1 starten
-# MLR und SVM für jedes Paar Sample - Population
 S1_MLR_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
 S1_linSVM_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
 S1_RBFSVM_Accuracy <- data.frame(Fold = integer(), Accuracy = integer())
@@ -262,7 +70,9 @@ S1_MLR_AUC <- matrix(NA, nrow = 200, ncol = 4)
 S1_linSVM_AUC <- matrix(NA, nrow = 200, ncol = 4)
 S1_RBFSVM_AUC <- matrix(NA, nrow = 200, ncol = 4)
 
+# MLR und SVM für jedes Paar Sample - Population
 for (i in c(1:200)) {
+    
     # Trainings- und Validierungsdaten
     trainDF <- popList[[i]]$smp # Sample als Trainingsdaten
     validDF <- popList[[i]]$pop # Population als Validierungsdaten
@@ -292,7 +102,7 @@ for (i in c(1:200)) {
                   data = trainDF,
                   type = "C-classification",
                   kernel = "linear",
-                  cost = S1_optimalLinSVMCost,
+                  cost = 0.1,
                   probability = TRUE)
     # linSVM Vorhersage
     S1_linSVM_yPred = predict(S1_linSVM_Modell, newdata = validDF[-1])
@@ -306,12 +116,13 @@ for (i in c(1:200)) {
     S1_linSVM_Accuracy[i,] <- c(i,sum(diag(S1_linSVM_ConfMat))/sum(S1_linSVM_ConfMat))
     
     # RBFSVM Trainieren
+    str(validDF)
     S1_RBFSVM_Modell <- svm(y ~ X_1 + X_2,
                   data = trainDF,
                   type = "C-classification",
                   kernel = "radial",
-                  gamma = S1_optimalRBFSVMGamma, 
-                  cost = S1_optimalRBFSVMCost,
+                  gamma = 0.01, 
+                  cost = 10,
                   probability = TRUE)
     # RBFSVM Vorhersage
     S1_RBFSVM_yPred = predict(S1_RBFSVM_Modell, newdata = validDF[-1])
@@ -324,41 +135,6 @@ for (i in c(1:200)) {
     # RBFSVM Genauigkeit
     S1_RBFSVM_Accuracy[i,] <- c(i,sum(diag(S1_RBFSVM_ConfMat))/sum(S1_RBFSVM_ConfMat))
     
-    # AUC Berechnen
-    S1_dummyDF <- matrix(NA, nrow = nrow(validDF), ncol = nlevels(validDF$y))
-
-    for (j in c(1:nlevels(validDF$y))) {
-        S1_dummyDF[,j] <- as.numeric(validDF[1] == j)
-    
-    }
-    rm(j)
-    
-    S1_MLR_ROC_1 <- roc(S1_dummyDF[,1], S1_MLR_yProbPred[,1])
-    S1_MLR_ROC_2 <- roc(S1_dummyDF[,2], S1_MLR_yProbPred[,2])
-    S1_MLR_ROC_3 <- roc(S1_dummyDF[,3], S1_MLR_yProbPred[,3])
-    S1_MLR_ROC_4 <- roc(S1_dummyDF[,4], S1_MLR_yProbPred[,4])
-    
-    S1_MLR_AUC[i,]  <- round(as.numeric(lapply(list(S1_MLR_ROC_1,S1_MLR_ROC_2,
-                                               S1_MLR_ROC_3,S1_MLR_ROC_4),
-                                            function(x) auc(x))),4)
-    
-    S1_linSVM_ROC_1 <- roc(S1_dummyDF[,1], S1_linSVM_yProbPred[,1])
-    S1_linSVM_ROC_2 <- roc(S1_dummyDF[,2], S1_linSVM_yProbPred[,2])
-    S1_linSVM_ROC_3 <- roc(S1_dummyDF[,3], S1_linSVM_yProbPred[,3])
-    S1_linSVM_ROC_4 <- roc(S1_dummyDF[,4], S1_linSVM_yProbPred[,4])
-    
-    S1_linSVM_AUC[i,] <- round(as.numeric(lapply(list(S1_linSVM_ROC_1,S1_linSVM_ROC_2,
-                                                  S1_linSVM_ROC_3, S1_linSVM_ROC_4), 
-                                             function(x) auc(x))),4)
-    
-    S1_RBFSVM_ROC_1 <- roc(S1_dummyDF[,1], S1_RBFSVM_yProbPred[,1])
-    S1_RBFSVM_ROC_2 <- roc(S1_dummyDF[,2], S1_RBFSVM_yProbPred[,2])
-    S1_RBFSVM_ROC_3 <- roc(S1_dummyDF[,3], S1_RBFSVM_yProbPred[,3])
-    S1_RBFSVM_ROC_4 <- roc(S1_dummyDF[,4], S1_RBFSVM_yProbPred[,4])
-    
-    S1_RBFSVM_AUC[i,] <- round(as.numeric(lapply(list(S1_RBFSVM_ROC_1,S1_RBFSVM_ROC_2,
-                                                  S1_RBFSVM_ROC_3, S1_RBFSVM_ROC_4), 
-                                             function(x) auc(x))),4)
 }
 
 #mean(S1_MLR_AUC)
@@ -372,16 +148,16 @@ S1_Accuracy <- data.frame(Accuracy = c(S1_MLR_Accuracy$Accuracy,
                                  rep("RBFSVM", 200)))
 
 abb610 <- ggplot(S1_Accuracy, aes(x = ID, y = Accuracy, color = ID)) + 
-    geom_boxplot() +
+    geom_boxplot(lwd = 1.4) +
     theme_light() +
     labs(y = "Genauigkeit") + 
     scale_x_discrete(limits = c('MLR', 'linSVM', 'RBFSVM')) +
-    #scale_y_continuous(limits = c(min(S2_Accuracy$Accuracy), max(S2_Accuracy$Accuracy))) +
+    scale_y_continuous(limits = c(0.5, 0.65)) +
     scale_color_discrete(guide = FALSE) +
     theme(#plot.title = element_text(size = 28, face = "bold"),
           axis.line.x = element_line(color = "black", size = 0.5),
           axis.line.y = element_line(color = "black", size = 0.5),
-          axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0)),
+          axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0), face = "bold"),
           axis.text.y = element_text(size = 20, margin = margin(t = 0, r = 0, b = 0, l = 10)),
           #axis.title.x = element_text(size = 24, face = "bold"),
           axis.title.x = element_blank(),
@@ -390,16 +166,16 @@ abb610 <- ggplot(S1_Accuracy, aes(x = ID, y = Accuracy, color = ID)) +
           axis.ticks = element_line(colour = "black"),
           legend.title = element_blank())
 
-ggsave(plot = abb610, filename = "./Abbildungen/Abbildung_6_10.pdf", width = 297, height = 210, units = "mm")
+ggsave(plot = abb610, filename = "./Abbildungen/Abbildung_7_1_a.pdf", width = 297, height = 210, units = "mm")
 ```
 
 ```{r Szenario 2}
 # Daten einlesen
-load("/Users/XuanSon/Desktop/complexSimData.Rdata")
+#load("./complexSimData.Rdata")
 
 # SVM Parameteroptimierung anhand einem Paar Sample - Population
-trainDF <- popList[[1]]$smp
-validDF <- popList[[1]]$pop
+trainDF <- popList[[26]]$smp
+validDF <- popList[[26]]$pop
 
 # Zielvariable & 2 binäre erklärende Variablen faktorisieren
 trainDF[,c('y', 'X_5', 'X_6')] <- lapply(trainDF[,c('y', 'X_5', 'X_6')],
@@ -413,16 +189,16 @@ validDF <- validDF[,-2]
 
 S2_linSVM_Tune <- tune.svm(y ~ ., data = trainDF, 
                            kernel = 'linear',
-                           cost = 10^(c(-3:3)))
+                           cost = 10^(c(-6:3)))
 
 S2_RBFSVM_Tune <- tune.svm(y ~ ., data = trainDF,
                            kernel = 'radial',
-                           gamma = 10^(c(-3:3)),
-                           cost = 10^(c(-3:3)))
+                           gamma = 10^(c(-2:5)),
+                           cost = 10^(c(-2:5)))
 
-optimalLinSVMCost <- S2_linSVM_Tune$best.parameters$cost
-optimalRBFSVMGamma <- S2_RBFSVM_Tune$best.parameters$gamma
-optimalRBFSVMCost <- S2_RBFSVM_Tune$best.parameters$cost
+S2_optimalLinSVMCost <- S2_linSVM_Tune$best.parameters$cost
+S2_optimalRBFSVMGamma <- S2_RBFSVM_Tune$best.parameters$gamma
+S2_optimalRBFSVMCost <- S2_RBFSVM_Tune$best.parameters$cost
 
 # MLR Trainieren
 S2_MLR_FULL <- multinom(y ~ ., data = trainDF)
@@ -431,17 +207,13 @@ S2_MLR_AIC <- step(S2_MLR_FULL, direction = 'backward', trace = 0)
 S2_MLR_yPred <- predict(S2_MLR_AIC, newdata = validDF[-1])
 S2_MLR_yProbPred <- predict(S2_MLR_AIC, newdata = validDF[-1], type = "probs")
 # #all(as.numeric(S2_MLR_yPred) == apply(S2_MLR_yProbPred, 1, function(x) which.max(x)))
-# # MLR Confusion Matrix
-# S2_MLR_ConfMat = table(true = validDF[,1], pred = S2_MLR_yPred)
-# # MLR Genauigkeit
-# S2_MLR_Accuracy[i,] <- c(i, sum(diag(S2_MLR_ConfMat))/sum(S2_MLR_ConfMat))
 
 # linSVM Trainieren
 S2_linSVM_Modell <- svm(y ~ .,
                         data = trainDF,
                         type = "C-classification",
                         kernel = "linear",
-                        cost = optimalLinSVMCost,
+                        cost = S2_optimalLinSVMCost,
                         probability = TRUE)
 # linSVM Vorhersage
 S2_linSVM_yPred = predict(S2_linSVM_Modell, newdata = validDF[-1])
@@ -450,18 +222,14 @@ S2_linSVM_yProbPred <- predict(S2_linSVM_Modell, newdata = validDF[-1], probabil
 S2_linSVM_yProbPred <- attr(S2_linSVM_yProbPred, 'probabilities')
 S2_linSVM_yProbPred <- S2_linSVM_yProbPred[ , c("1","2","3","4")] 
 # all(as.numeric(S2_linSVM_yPred) == apply(S2_linSVM_yProbPred, 1, function(x) which.max(x)))
-# # linSVM Confusion Matrix
-# S2_linSVM_ConfMat = table(true = validDF[,1], pred = S2_linSVM_yPred)
-# # linSVM Genauigkeit
-# S2_linSVM_Accuracy[i,] <- c(i,sum(diag(S2_linSVM_ConfMat))/sum(S2_linSVM_ConfMat))
 
 # RBFSVM Trainieren
 S2_RBFSVM_Modell <- svm(y ~ .,
                         data = trainDF,
                         type = "C-classification",
                         kernel = "radial",
-                        gamma = optimalRBFSVMGamma, 
-                        cost = optimalRBFSVMCost,
+                        gamma = S2_optimalRBFSVMGamma, 
+                        cost = S2_optimalRBFSVMCost,
                         probability = TRUE)
 # RBFSVM Vorhersage
 S2_RBFSVM_yPred = predict(S2_RBFSVM_Modell, newdata = validDF[-1])
@@ -469,13 +237,8 @@ S2_RBFSVM_yPred = predict(S2_RBFSVM_Modell, newdata = validDF[-1])
 S2_RBFSVM_yProbPred = predict(S2_RBFSVM_Modell, newdata = validDF[-1], probability = TRUE)
 S2_RBFSVM_yProbPred <- attr(S2_RBFSVM_yProbPred, 'probabilities')
 S2_RBFSVM_yProbPred <- S2_RBFSVM_yProbPred[ , c("1","2","3","4")] 
-# # RBFSVM Confusion Matrix
-# S2_RBFSVM_ConfMat = table(true = validDF[,1], pred = S2_RBFSVM_yPred)
-# # RBFSVM Genauigkeit
-# S2_RBFSVM_Accuracy[i,] <- c(i,sum(diag(S2_RBFSVM_ConfMat))/sum(S2_RBFSVM_ConfMat))
 
 # Beispielshafte ROC
-# Daten vorbereiten
 # Transformiere die Zielvariable in Dummy-Variablen (in Populationsdaten)
 S2_dummyDF <- matrix(nrow = nrow(validDF), ncol = nlevels(validDF$y))
 
@@ -545,7 +308,7 @@ S2_MLR_ROC <- ggroc(list(S2_MLR_ROC_1,S2_MLR_ROC_2,S2_MLR_ROC_3,S2_MLR_ROC_4),
         strip.text = element_text(colour = "black", size = 16)) +
     guides(color = guide_legend(nrow = 2)) 
 
-ggsave(plot = S2_MLR_ROC, filename = "./Abbildungen/Abbildung_6_11_a.pdf", 
+ggsave(plot = S2_MLR_ROC, filename = "./Abbildungen/Abbildung_7_2_a.pdf", 
        width = 297, height = 210, units = "mm")
 
 S2_linSVM_ROC <- ggroc(list(S2_linSVM_ROC_1,S2_linSVM_ROC_2,
@@ -554,8 +317,9 @@ S2_linSVM_ROC <- ggroc(list(S2_linSVM_ROC_1,S2_linSVM_ROC_2,
     theme_light() + geom_abline(slope = 1, intercept = 0, size = 1) +
     labs(y = "Richtig-Positiv-Rate",
          x = "Falsch-Positiv-Rate") + 
-    scale_color_discrete("Armutskategorie",
-                         breaks = c("1", "2", "3", "4")) + 
+    scale_color_discrete("y",
+                         breaks = c("1", "2", "3", "4"),
+                         labels = c("y = 1\t", "y = 2\t", "y = 3\t", "y = 4\t")) + 
     coord_fixed() +
     theme(axis.line.x = element_line(color = "black", size = 0.5),
           axis.line.y = element_line(color = "black", size = 0.5),
@@ -570,14 +334,14 @@ S2_linSVM_ROC <- ggroc(list(S2_linSVM_ROC_1,S2_linSVM_ROC_2,
           legend.text = element_text(size = 18),
           legend.position = "none",
           legend.background = element_blank(),
-          legend.box.background = element_rect(colour = "black"),
-          legend.box.margin = margin(c(5,0,5,0)),
+          #legend.box.background = element_rect(colour = "black"),
+          #legend.box.margin = margin(c(5,0,5,0)),
           legend.key.width = unit(1.5,"line"),
           legend.key.height = unit(2,"line"),
           strip.text = element_text(colour = "black", size = 16)) +
-    guides(color = guide_legend(nrow = 2))
+    guides(color = guide_legend(nrow = 1))
 
-ggsave(plot = S2_linSVM_ROC, filename = "./Abbildungen/Abbildung_6_11_b.pdf", 
+ggsave(plot = S2_linSVM_ROC, filename = "./Abbildungen/Abbildung_7_2_b.pdf", 
        width = 297, height = 210, units = "mm")
 
 
@@ -609,7 +373,7 @@ S2_RBFSVM_ROC <- ggroc(list(S2_RBFSVM_ROC_1,S2_RBFSVM_ROC_2,S2_RBFSVM_ROC_3,S2_R
           strip.text = element_text(colour = "black", size = 16)) +
     guides(color = guide_legend(nrow = 2))
 
-ggsave(plot = S2_RBFSVM_ROC, filename = "./Abbildungen/Abbildung_6_11_c.pdf", 
+ggsave(plot = S2_RBFSVM_ROC, filename = "./Abbildungen/Abbildung_7_2_c.pdf", 
        width = 297, height = 210, units = "mm")
 
 # Modellierung für Szenario 2 starten
@@ -652,7 +416,7 @@ for (i in c(1:200)) {
                             data = trainDF,
                             type = "C-classification",
                             kernel = "linear",
-                            cost = optimalLinSVMCost,
+                            cost = S2_optimalLinSVMCost,
                             probability = TRUE)
     # linSVM Vorhersage
     S2_linSVM_yPred = predict(S2_linSVM_Modell, newdata = validDF[-1])
@@ -670,8 +434,8 @@ for (i in c(1:200)) {
                             data = trainDF,
                             type = "C-classification",
                             kernel = "radial",
-                            gamma = optimalRBFSVMGamma, 
-                            cost = optimalRBFSVMCost,
+                            gamma = S2_optimalRBFSVMGamma, 
+                            cost = S2_optimalRBFSVMCost,
                             probability = TRUE)
     # RBFSVM Vorhersage
     S2_RBFSVM_yPred = predict(S2_RBFSVM_Modell, newdata = validDF[-1])
@@ -694,16 +458,16 @@ S2_Accuracy <- data.frame(Accuracy = c(S2_MLR_Accuracy$Accuracy,
                                  rep("RBFSVM", 200)))
 
 abb612 <- ggplot(S2_Accuracy, aes(x = ID, y = Accuracy, color = ID)) + 
-    geom_boxplot() +
+    geom_boxplot(lwd = 1.4) +
     theme_light() +
     labs(y = "Genauigkeit") + 
     scale_x_discrete(limits = c('MLR', 'linSVM', 'RBFSVM')) +
-    #scale_y_continuous(limits = c(min(S2_Accuracy$Accuracy), max(S2_Accuracy$Accuracy))) +
+    scale_y_continuous(limits = c(0.50, 0.65)) +
     scale_color_discrete(guide = FALSE) +
     theme(#plot.title = element_text(size = 28, face = "bold"),
         axis.line.x = element_line(color = "black", size = 0.5),
         axis.line.y = element_line(color = "black", size = 0.5),
-        axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0)),
+        axis.text.x = element_text(size = 20, margin = margin(t = 5, r = 0, b = 10, l = 0), face = "bold"),
         axis.text.y = element_text(size = 20, margin = margin(t = 0, r = 0, b = 0, l = 10)),
         #axis.title.x = element_text(size = 24, face = "bold"),
         axis.title.x = element_blank(),
@@ -712,6 +476,6 @@ abb612 <- ggplot(S2_Accuracy, aes(x = ID, y = Accuracy, color = ID)) +
         axis.ticks = element_line(colour = "black"),
         legend.title = element_blank())
 
-ggsave(plot = abb612, filename = "./Abbildungen/Abbildung_6_12.pdf", width = 297, height = 210, units = "mm")
+ggsave(plot = abb612, filename = "./Abbildungen/Abbildung_7_1_b.pdf", width = 297, height = 210, units = "mm")
 
 ```
