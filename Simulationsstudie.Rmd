@@ -48,12 +48,12 @@ validDF <- validDF[,-2]
 
 S1_linSVM_Tune <- tune.svm(y ~ ., data = trainDF, 
                            kernel = 'linear',
-                           cost = 10^(c(-5:3)))
+                           cost = 10^(c(-6:3)))
 
 S1_RBFSVM_Tune <- tune.svm(y ~ ., data = trainDF,
                            kernel = 'radial',
-                           gamma = 10^(c(-5:3)),
-                           cost = 10^(c(-5:3)))
+                           gamma = 10^(c(-2:5)),
+                           cost = 10^(c(-2:5)))
 
 S1_optimalLinSVMCost <- S1_linSVM_Tune$best.parameters$cost
 S1_optimalRBFSVMGamma <- S1_RBFSVM_Tune$best.parameters$gamma
@@ -112,7 +112,7 @@ S1_RBFSVM_yProbPred <- S1_RBFSVM_yProbPred[ , c("1","2","3","4")]
 # Beispielshafte ROC
 # Daten vorbereiten
 # Transformiere die Zielvariable in Dummy-Variablen (in Populationsdaten)
-S1_dummyDF <- matrix(nrow = nrow(validDF), ncol = nlevels(validDF$y))
+S1_dummyDF <- matrix(NA, nrow = nrow(validDF), ncol = nlevels(validDF$y))
 
 for (i in c(1:nlevels(validDF$y))) {
     S1_dummyDF[,i] <- as.numeric(validDF[1] == i)
@@ -325,6 +325,14 @@ for (i in c(1:200)) {
     S1_RBFSVM_Accuracy[i,] <- c(i,sum(diag(S1_RBFSVM_ConfMat))/sum(S1_RBFSVM_ConfMat))
     
     # AUC Berechnen
+    S1_dummyDF <- matrix(NA, nrow = nrow(validDF), ncol = nlevels(validDF$y))
+
+    for (j in c(1:nlevels(validDF$y))) {
+        S1_dummyDF[,j] <- as.numeric(validDF[1] == j)
+    
+    }
+    rm(j)
+    
     S1_MLR_ROC_1 <- roc(S1_dummyDF[,1], S1_MLR_yProbPred[,1])
     S1_MLR_ROC_2 <- roc(S1_dummyDF[,2], S1_MLR_yProbPred[,2])
     S1_MLR_ROC_3 <- roc(S1_dummyDF[,3], S1_MLR_yProbPred[,3])
@@ -352,6 +360,8 @@ for (i in c(1:200)) {
                                                   S1_RBFSVM_ROC_3, S1_RBFSVM_ROC_4), 
                                              function(x) auc(x))),4)
 }
+
+#mean(S1_MLR_AUC)
 
 # Box-Plot Genauigkeit
 S1_Accuracy <- data.frame(Accuracy = c(S1_MLR_Accuracy$Accuracy,
