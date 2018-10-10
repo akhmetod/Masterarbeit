@@ -7,7 +7,7 @@ editor_options:
   chunk_output_type: console
 ---
 
-```{r setup, include=FALSE}
+```{r Setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)  
 library(dplyr)
 library(ggplot2)
@@ -19,13 +19,6 @@ library(caret)
 library(caTools)
 library(nnet)
 library(e1071)
-library(scales)
-library(pROC)
-library(stringr)
-library(rgdal)
-library(gpclib)
-#library(rgeos)
-library(maptools)
 options(xtable.floating = FALSE)
 options(xtable.timestamp = "")
 ```
@@ -170,8 +163,8 @@ ggsave(plot = abb610, filename = "./Abbildungen/Abbildung_7_1_a.pdf", width = 29
 ```
 
 ```{r Szenario 2}
-# Daten einlesen
-#load("./complexSimData.Rdata")
+# complexSimData.Rdata wird eingelesen
+load("./complexSimData.Rdata")
 
 # SVM Parameteroptimierung anhand einem Paar Sample - Population
 trainDF <- popList[[26]]$smp
@@ -186,19 +179,29 @@ validDF[,c('y', 'X_5', 'X_6')] <- lapply(validDF[,c('y', 'X_5', 'X_6')],
 # Interzept entfernen
 trainDF <- trainDF[,-2]
 validDF <- validDF[,-2]
+# 
+# S2_linSVM_Tune <- tune.svm(y ~ ., data = trainDF, 
+#                            kernel = 'linear',
+#                            cost = 10^(c(-6:3)))
+# 
+# S2_RBFSVM_Tune <- tune.svm(y ~ ., data = trainDF,
+#                            kernel = 'radial',
+#                            gamma = 10^(c(-2:5)),
+#                            cost = 10^(c(-2:5)))
+# 
+# S2_linSVM_TuneErgebnisse <- data.frame(C = S2_linSVM_Tune$performances[,1], 
+#                                        Accuracy = 1 - S2_linSVM_Tune$performances[,2])
+# 
+# S2_RBFSVM_TuneErgebnisse <- data.frame(Gamma = S2_RBFSVM_Tune$performances[,1],
+#                                        C = S2_RBFSVM_Tune$performances[,2],
+#                                        Accuracy = 1 - S2_RBFSVM_Tune$performances[,3])
+# 
+# write.csv(S2_linSVM_TuneErgebnisse, "./CSV-Ergebnisse/S2_linSVM_Tune.csv")
+# write.csv(S2_RBFSVM_TuneErgebnisse, "./CSV-Ergebnisse/S2_RBFSVM_Tune.csv")
 
-S2_linSVM_Tune <- tune.svm(y ~ ., data = trainDF, 
-                           kernel = 'linear',
-                           cost = 10^(c(-6:3)))
-
-S2_RBFSVM_Tune <- tune.svm(y ~ ., data = trainDF,
-                           kernel = 'radial',
-                           gamma = 10^(c(-2:5)),
-                           cost = 10^(c(-2:5)))
-
-S2_optimalLinSVMCost <- S2_linSVM_Tune$best.parameters$cost
-S2_optimalRBFSVMGamma <- S2_RBFSVM_Tune$best.parameters$gamma
-S2_optimalRBFSVMCost <- S2_RBFSVM_Tune$best.parameters$cost
+S2_optimalLinSVMCost <- 1
+S2_optimalRBFSVMGamma <- 0.01
+S2_optimalRBFSVMCost <- 100
 
 # MLR Trainieren
 S2_MLR_FULL <- multinom(y ~ ., data = trainDF)
@@ -206,7 +209,10 @@ S2_MLR_AIC <- step(S2_MLR_FULL, direction = 'backward', trace = 0)
 # MLR Vorhersagen
 S2_MLR_yPred <- predict(S2_MLR_AIC, newdata = validDF[-1])
 S2_MLR_yProbPred <- predict(S2_MLR_AIC, newdata = validDF[-1], type = "probs")
-# #all(as.numeric(S2_MLR_yPred) == apply(S2_MLR_yProbPred, 1, function(x) which.max(x)))
+S2_MLR_ConfMat = table(true = validDF[,1], pred = S2_MLR_yPred)
+S2_MLR_Accuracy <- round(sum(diag(S2_MLR_ConfMat))*100/sum(S2_MLR_ConfMat),2)
+# all(as.numeric(S2_MLR_yPred) == apply(S2_MLR_yProbPred, 1, function(x) which.max(x)))
+# xtable(S2_MLR_ConfMat)
 
 # linSVM Trainieren
 S2_linSVM_Modell <- svm(y ~ .,
@@ -221,7 +227,11 @@ S2_linSVM_yPred = predict(S2_linSVM_Modell, newdata = validDF[-1])
 S2_linSVM_yProbPred <- predict(S2_linSVM_Modell, newdata = validDF[-1], probability = TRUE)
 S2_linSVM_yProbPred <- attr(S2_linSVM_yProbPred, 'probabilities')
 S2_linSVM_yProbPred <- S2_linSVM_yProbPred[ , c("1","2","3","4")] 
-# all(as.numeric(S2_linSVM_yPred) == apply(S2_linSVM_yProbPred, 1, function(x) which.max(x)))
+S2_linSVM_ConfMat = table(true = validDF[,1], 
+                          pred = apply(S2_linSVM_yProbPred, 1, function(x) which.max(x)))
+S2_linSVM_Accuracy <- round(sum(diag(S2_linSVM_ConfMat))*100/sum(S2_linSVM_ConfMat),2)
+# sum(as.numeric(S2_linSVM_yPred) == apply(S2_linSVM_yProbPred, 1, function(x) which.max(x)))
+# xtable(S2_linSVM_ConfMat)
 
 # RBFSVM Trainieren
 S2_RBFSVM_Modell <- svm(y ~ .,
@@ -237,6 +247,10 @@ S2_RBFSVM_yPred = predict(S2_RBFSVM_Modell, newdata = validDF[-1])
 S2_RBFSVM_yProbPred = predict(S2_RBFSVM_Modell, newdata = validDF[-1], probability = TRUE)
 S2_RBFSVM_yProbPred <- attr(S2_RBFSVM_yProbPred, 'probabilities')
 S2_RBFSVM_yProbPred <- S2_RBFSVM_yProbPred[ , c("1","2","3","4")] 
+S2_RBFSVM_ConfMat = table(true = validDF[,1], 
+                          pred = apply(S2_RBFSVM_yProbPred, 1, function(x) which.max(x)))
+S2_RBFSVM_Accuracy <- round(sum(diag(S2_RBFSVM_ConfMat))*100/sum(S2_RBFSVM_ConfMat),2)
+# xtable(S2_RBFSVM_ConfMat)
 
 # Beispielshafte ROC
 # Transformiere die Zielvariable in Dummy-Variablen (in Populationsdaten)
@@ -457,7 +471,7 @@ S2_Accuracy <- data.frame(Accuracy = c(S2_MLR_Accuracy$Accuracy,
                                  rep("linSVM", 200), 
                                  rep("RBFSVM", 200)))
 
-abb612 <- ggplot(S2_Accuracy, aes(x = ID, y = Accuracy, color = ID)) + 
+abb71b <- ggplot(S2_Accuracy, aes(x = ID, y = Accuracy, color = ID)) + 
     geom_boxplot(lwd = 1.4) +
     theme_light() +
     labs(y = "Genauigkeit") + 
@@ -476,6 +490,6 @@ abb612 <- ggplot(S2_Accuracy, aes(x = ID, y = Accuracy, color = ID)) +
         axis.ticks = element_line(colour = "black"),
         legend.title = element_blank())
 
-ggsave(plot = abb612, filename = "./Abbildungen/Abbildung_7_1_b.pdf", width = 297, height = 210, units = "mm")
+ggsave(plot = abb71b, filename = "./Abbildungen/Abbildung_7_1_b.pdf", width = 297, height = 210, units = "mm")
 
 ```
