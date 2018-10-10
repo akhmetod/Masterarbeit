@@ -547,7 +547,7 @@ RBFSVM_yPred = predict(RBFSVM_Modell, newdata = surveyTestDF[-1])
 RBFSVM_yProbPred = predict(RBFSVM_Modell, newdata = surveyTestDF[-1], probability = TRUE)
 RBFSVM_yProbPred <- attr(RBFSVM_yProbPred, 'probabilities')
 RBFSVM_yProbPred <- RBFSVM_yProbPred[ , listKlassen] 
-# all(as.numeric(RBFSVM_yPred) == apply(RBFSVM_yProbPred, 1, function(x) which.max(x)))
+all(as.numeric(RBFSVM_yPred) == apply(RBFSVM_yProbPred, 1, function(x) which.max(x)))
 
 # Confusion Matrix RBF SVM
 RBFSVM_ConfMat = table(true = surveyTestDF[,1], 
