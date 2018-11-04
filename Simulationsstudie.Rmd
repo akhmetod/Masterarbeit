@@ -140,12 +140,17 @@ S1_Accuracy <- data.frame(Accuracy = c(S1_MLR_Accuracy$Accuracy,
                                  rep("linSVM", 200), 
                                  rep("RBFSVM", 200)))
 
-abb610 <- ggplot(S1_Accuracy, aes(x = ID, y = Accuracy, color = ID)) + 
-    geom_boxplot(lwd = 1.4) +
-    theme_light() +
+names(S1_Accuracy) <- c("values", "ind")
+ACCU_Data_OOS <- ACCU_Data_OOS[-c(1:100),]
+
+abb610 <- ggplot() + 
+    geom_boxplot(data = S1_Accuracy, aes(x = ind, y = values, color = factor(ind)), lwd = 1.4) +
+    geom_boxplot(data = ACCU_Data_OOS, aes(x = ind, y = values,color = factor(ind)), lwd = 1.4) +
+    theme_grey() +
     labs(y = "Genauigkeit") + 
-    scale_x_discrete(limits = c('MLR', 'linSVM', 'RBFSVM')) +
-    scale_y_continuous(limits = c(0.5, 0.65)) +
+    scale_x_discrete(limits = c('MLR', 'MLTTF.values', 'linSVM', 'RBFSVM', 'ANN.values'),
+                     labels = c('MLR', 'MLTF', 'linSVM', 'RBFSVM', 'ANN')) +
+    scale_y_continuous(limits = c(0.52, 0.6)) +
     scale_color_discrete(guide = FALSE) +
     theme(#plot.title = element_text(size = 28, face = "bold"),
           axis.line.x = element_line(color = "black", size = 0.5),
@@ -157,9 +162,47 @@ abb610 <- ggplot(S1_Accuracy, aes(x = ID, y = Accuracy, color = ID)) +
           axis.title.y = element_text(size = 24, face = "bold"),
           axis.ticks.length = unit(.25, "cm"),
           axis.ticks = element_line(colour = "black"),
-          legend.title = element_blank())
+          legend.title = element_blank()) 
 
-ggsave(plot = abb610, filename = "./Abbildungen/Abbildung_7_1_a.pdf", width = 297, height = 210, units = "mm")
+ggsave(plot = abb610, filename = "./Abbildungen/S1_Ergebnis.pdf", width = 297, height = 210, units = "mm")
+
+########### Dataset 1 ##############
+# Accuracy:
+#load("./results/plots/MLogist_ACCU_PLOT_D1.rda")
+MLogist_ACCU_PLOT_DATA <- ggplot_build(MLogist_ACCU)$plot$data
+#load("./results/plots/ANN_ACCU_PLOT_D1.rda")
+ANN_ACCU_PLOT_DATA <- ggplot_build(ANN_ACCU)$plot$data
+#load("./results/plots/MLTTF_ACCU_PLOT_D1.rda")
+MLTTF_ACCU_PLOT_DATA <- ggplot_build(MLTTF_ACCU)$plot$data
+ 
+ACCU_Data_IS = stack(cbind(MLogist = MLogist_ACCU_PLOT_DATA,
+       ANN = ANN_ACCU_PLOT_DATA,
+       MLTTF = MLTTF_ACCU_PLOT_DATA)[1:100,])
+ACCU_Data_OOS = stack(cbind(MLogist = MLogist_ACCU_PLOT_DATA,
+      ANN = ANN_ACCU_PLOT_DATA,
+      MLTTF = MLTTF_ACCU_PLOT_DATA)[101:200,])
+ 
+# ACCU_Summary_IS = ggplot(ACCU_Data_IS) +
+#   geom_boxplot(aes(x = ind, y = values,color= factor(ind))) +
+#   ggplot2::theme_gray() +
+#   scale_x_discrete(name = "Sample") +
+#   scale_y_continuous(name = "Accuracy",limits = c(0.53, 0.62)) +
+#   theme( legend.position = "none")
+# ACCU_Summary_IS
+ 
+ACCU_Summary_OOS = ggplot(ACCU_Data_OOS) +
+  geom_boxplot(aes(x = ind, y = values,color = factor(ind))) +
+  ggplot2::theme_gray() +
+  scale_x_discrete(name = "Population") +
+  scale_y_continuous(name = "Accuracy",limits = c(0.53, 0.62))  +
+  theme( legend.position = "none")
+ACCU_Summary_OOS
+ 
+# SumAccuD1 = plot_grid(ACCU_Summary_IS,ACCU_Summary_OOS,nrow = 1)
+# SumAccuD1
+    
+
+
 ```
 
 ```{r Szenario 2}
@@ -464,19 +507,44 @@ for (i in c(1:200)) {
     
 }
 
-S2_Accuracy <- data.frame(Accuracy = c(S2_MLR_Accuracy$Accuracy,
+S2_Accuracy <- data.frame(values = c(S2_MLR_Accuracy$Accuracy,
                                        S2_linSVM_Accuracy$Accuracy,
                                        S2_RBFSVM_Accuracy$Accuracy),
-                          ID = c(rep("MLR", 200), 
+                          ind = c(rep("MLR", 200), 
                                  rep("linSVM", 200), 
                                  rep("RBFSVM", 200)))
 
-abb71b <- ggplot(S2_Accuracy, aes(x = ID, y = Accuracy, color = ID)) + 
-    geom_boxplot(lwd = 1.4) +
-    theme_light() +
+#write.csv(S2_Accuracy, "S2_Accuracy.csv", row.names = FALSE)
+
+#### Dataset 2: #######
+# Accuracy:
+#load("./results/plots/MLogist_ACCU_PLOT_D2.rda")
+MLogist_ACCU_PLOT_DATA <- ggplot_build(MLogist_ACCU)$plot$data
+#load("./results/plots/ANN_ACCU_PLOT_D2.rda")
+ANN_ACCU_PLOT_DATA <- ggplot_build(ANN_ACCU)$plot$data
+#load("./results/plots/MLTTF_ACCU_PLOT_D2.rda")
+MLTTF_ACCU_PLOT_DATA <- ggplot_build(MLTTF_ACCU)$plot$data
+ 
+ACCU_Data_OOS = stack(cbind(MLogist = MLogist_ACCU_PLOT_DATA,
+                            ANN = ANN_ACCU_PLOT_DATA,
+                            MLTTF = MLTTF_ACCU_PLOT_DATA)[101:200,])
+ 
+ 
+ACCU_Summary_OOS = ggplot(ACCU_Data_OOS) +
+  geom_boxplot(aes(x = ind, y = values,color= factor(ind))) +
+  ggplot2::theme_gray() +
+  scale_x_discrete(name = "Population") +
+  scale_y_continuous(name = "Accuracy",limits = c(0.5, 0.7))  +
+  theme( legend.position = "none")
+ 
+abb71b <- ggplot() + 
+    geom_boxplot(data = S2_Accuracy, aes(x = ind, y = values, color = factor(ind)), lwd = 1.4) +
+    geom_boxplot(data = ACCU_Data_OOS, aes(x = ind, y = values, color = factor(ind)), lwd = 1.4) +
+    theme_grey() +
     labs(y = "Genauigkeit") + 
-    scale_x_discrete(limits = c('MLR', 'linSVM', 'RBFSVM')) +
-    scale_y_continuous(limits = c(0.50, 0.65)) +
+    scale_x_discrete(limits = c('MLR', 'MLTTF.values', 'linSVM', 'RBFSVM', 'ANN.values'),
+                     labels = c('MLR', 'MLTF', 'linSVM', 'RBFSVM', 'ANN')) +
+    scale_y_continuous(limits = c(0.5, 0.65)) +
     scale_color_discrete(guide = FALSE) +
     theme(#plot.title = element_text(size = 28, face = "bold"),
         axis.line.x = element_line(color = "black", size = 0.5),
@@ -490,6 +558,6 @@ abb71b <- ggplot(S2_Accuracy, aes(x = ID, y = Accuracy, color = ID)) +
         axis.ticks = element_line(colour = "black"),
         legend.title = element_blank())
 
-ggsave(plot = abb71b, filename = "./Abbildungen/Abbildung_7_1_b.pdf", width = 297, height = 210, units = "mm")
+ggsave(plot = abb71b, filename = "./Abbildungen/S2_Ergebnis.pdf", width = 297, height = 210, units = "mm")
 
 ```
